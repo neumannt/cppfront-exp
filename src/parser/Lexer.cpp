@@ -10,8 +10,32 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 using namespace std;
 //---------------------------------------------------------------------------
-static const unordered_map<string_view, Lexer::Keyword> keywords = {
-    {"alignas", Lexer::Keyword::Alignas}, {"alignof", Lexer::Keyword::Alignof}, {"asm", Lexer::Keyword::Asm}, {"as", Lexer::Keyword::As}, {"auto", Lexer::Keyword::Auto}, {"bool", Lexer::Keyword::Bool}, {"break", Lexer::Keyword::Break}, {"case", Lexer::Keyword::Case}, {"catch", Lexer::Keyword::Catch}, {"char", Lexer::Keyword::Char}, {"char16_t", Lexer::Keyword::Char16_t}, {"Char32_t", Lexer::Keyword::Char32_t}, {"char8_t", Lexer::Keyword::Char8_t}, {"class", Lexer::Keyword::Class}, {"co_await", Lexer::Keyword::Co_await}, {"co_return", Lexer::Keyword::Co_return}, {"co_yield", Lexer::Keyword::Co_yield}, {"concept", Lexer::Keyword::Concept}, {"const", Lexer::Keyword::Const}, {"const_cast", Lexer::Keyword::Const_cast}, {"consteval", Lexer::Keyword::Consteval}, {"constinit", Lexer::Keyword::Constinit}, {"continue", Lexer::Keyword::Continue}, {"decltype", Lexer::Keyword::Decltype}, {"default", Lexer::Keyword::Default}, {"double", Lexer::Keyword::Double}, {"do", Lexer::Keyword::Do}, {"dynamic_cast", Lexer::Keyword::Dynamic_cast}, {"else", Lexer::Keyword::Else}, {"enum", Lexer::Keyword::Enum}, {"explicit", Lexer::Keyword::Explicit}, {"export", Lexer::Keyword::Export}, {"extern", Lexer::Keyword::Extern}, {"false", Lexer::Keyword::False}, {"float", Lexer::Keyword::Float}, {"for", Lexer::Keyword::For}, {"friend", Lexer::Keyword::Friend}, {"goto", Lexer::Keyword::Goto}, {"if", Lexer::Keyword::If}, {"import", Lexer::Keyword::Import}, {"inline", Lexer::Keyword::Inline}, {"int", Lexer::Keyword::Int}, {"is", Lexer::Keyword::Is}, {"long", Lexer::Keyword::Long}, {"module", Lexer::Keyword::Module}, {"mutable", Lexer::Keyword::Mutable}, {"namespace", Lexer::Keyword::Namespace}, {"new", Lexer::Keyword::New}, {"noexcept", Lexer::Keyword::Noexcept}, {"nullptr", Lexer::Keyword::Nullptr}, {"operator", Lexer::Keyword::Operator}, {"private", Lexer::Keyword::Private}, {"protected", Lexer::Keyword::Protected}, {"public", Lexer::Keyword::Public}, {"register", Lexer::Keyword::Register}, {"reinterpret_cast", Lexer::Keyword::Reinterpret_cast}, {"requires", Lexer::Keyword::Requires}, {"return", Lexer::Keyword::Return}, {"short", Lexer::Keyword::Short}, {"signed", Lexer::Keyword::Signed}, {"sizeof", Lexer::Keyword::Sizeof}, {"static", Lexer::Keyword::Static}, {"static_assert", Lexer::Keyword::Static_assert}, {"static_cast", Lexer::Keyword::Static_cast}, {"struct", Lexer::Keyword::Struct}, {"switch", Lexer::Keyword::Switch}, {"template", Lexer::Keyword::Template}, {"this", Lexer::Keyword::This}, {"thread_local", Lexer::Keyword::Thread_local}, {"throws", Lexer::Keyword::Throws}, {"throw", Lexer::Keyword::Throw}, {"true", Lexer::Keyword::True}, {"try", Lexer::Keyword::Try}, {"typedef", Lexer::Keyword::Typedef}, {"typeid", Lexer::Keyword::Typeid}, {"typename", Lexer::Keyword::Typename}, {"unsigned", Lexer::Keyword::Unsigned}, {"using", Lexer::Keyword::Using}, {"virtual", Lexer::Keyword::Virtual}, {"void", Lexer::Keyword::Void}, {"volatile", Lexer::Keyword::Volatile}, {"wchar_t", Lexer::Keyword::Wchar_t}, {"while", Lexer::Keyword::While}};
+namespace {
+//---------------------------------------------------------------------------
+/// C++ keywords, including the cppfront keywords is and as
+static const unordered_map<string_view, Lexer::Keyword> keywords{
+    {"alignas"sv, Lexer::Keyword::Alignas}, {"alignof"sv, Lexer::Keyword::Alignof}, {"asm"sv, Lexer::Keyword::Asm}, {"as"sv, Lexer::Keyword::As}, {"auto"sv, Lexer::Keyword::Auto}, {"bool"sv, Lexer::Keyword::Bool}, {"break"sv, Lexer::Keyword::Break}, {"case"sv, Lexer::Keyword::Case}, {"catch"sv, Lexer::Keyword::Catch}, {"char"sv, Lexer::Keyword::Char}, {"char16_t"sv, Lexer::Keyword::Char16_t}, {"Char32_t"sv, Lexer::Keyword::Char32_t}, {"char8_t"sv, Lexer::Keyword::Char8_t}, {"class"sv, Lexer::Keyword::Class}, {"co_await"sv, Lexer::Keyword::Co_await}, {"co_return"sv, Lexer::Keyword::Co_return}, {"co_yield"sv, Lexer::Keyword::Co_yield}, {"concept"sv, Lexer::Keyword::Concept}, {"const"sv, Lexer::Keyword::Const}, {"const_cast"sv, Lexer::Keyword::Const_cast}, {"consteval"sv, Lexer::Keyword::Consteval}, {"constinit"sv, Lexer::Keyword::Constinit}, {"continue"sv, Lexer::Keyword::Continue}, {"decltype"sv, Lexer::Keyword::Decltype}, {"default"sv, Lexer::Keyword::Default}, {"delete"sv, Lexer::Keyword::Delete}, {"double"sv, Lexer::Keyword::Double}, {"do"sv, Lexer::Keyword::Do}, {"dynamic_cast"sv, Lexer::Keyword::Dynamic_cast}, {"else"sv, Lexer::Keyword::Else}, {"enum"sv, Lexer::Keyword::Enum}, {"explicit"sv, Lexer::Keyword::Explicit}, {"export"sv, Lexer::Keyword::Export}, {"extern"sv, Lexer::Keyword::Extern}, {"false"sv, Lexer::Keyword::False}, {"float"sv, Lexer::Keyword::Float}, {"for"sv, Lexer::Keyword::For}, {"friend"sv, Lexer::Keyword::Friend}, {"goto"sv, Lexer::Keyword::Goto}, {"if"sv, Lexer::Keyword::If}, {"import"sv, Lexer::Keyword::Import}, {"inline"sv, Lexer::Keyword::Inline}, {"int"sv, Lexer::Keyword::Int}, {"is"sv, Lexer::Keyword::Is}, {"long"sv, Lexer::Keyword::Long}, {"module"sv, Lexer::Keyword::Module}, {"mutable"sv, Lexer::Keyword::Mutable}, {"namespace"sv, Lexer::Keyword::Namespace}, {"new"sv, Lexer::Keyword::New}, {"noexcept"sv, Lexer::Keyword::Noexcept}, {"nullptr"sv, Lexer::Keyword::Nullptr}, {"operator"sv, Lexer::Keyword::Operator}, {"private"sv, Lexer::Keyword::Private}, {"protected"sv, Lexer::Keyword::Protected}, {"public"sv, Lexer::Keyword::Public}, {"register"sv, Lexer::Keyword::Register}, {"reinterpret_cast"sv, Lexer::Keyword::Reinterpret_cast}, {"requires"sv, Lexer::Keyword::Requires}, {"return"sv, Lexer::Keyword::Return}, {"short"sv, Lexer::Keyword::Short}, {"signed"sv, Lexer::Keyword::Signed}, {"sizeof"sv, Lexer::Keyword::Sizeof}, {"static"sv, Lexer::Keyword::Static}, {"static_assert"sv, Lexer::Keyword::Static_assert}, {"static_cast"sv, Lexer::Keyword::Static_cast}, {"struct"sv, Lexer::Keyword::Struct}, {"switch"sv, Lexer::Keyword::Switch}, {"template"sv, Lexer::Keyword::Template}, {"this"sv, Lexer::Keyword::This}, {"thread_local"sv, Lexer::Keyword::Thread_local}, {"throws"sv, Lexer::Keyword::Throws}, {"throw"sv, Lexer::Keyword::Throw}, {"true"sv, Lexer::Keyword::True}, {"try"sv, Lexer::Keyword::Try}, {"typedef"sv, Lexer::Keyword::Typedef}, {"typeid"sv, Lexer::Keyword::Typeid}, {"typename"sv, Lexer::Keyword::Typename}, {"union"sv, Lexer::Keyword::Union}, {"unsigned"sv, Lexer::Keyword::Unsigned}, {"using"sv, Lexer::Keyword::Using}, {"virtual"sv, Lexer::Keyword::Virtual}, {"void"sv, Lexer::Keyword::Void}, {"volatile"sv, Lexer::Keyword::Volatile}, {"wchar_t"sv, Lexer::Keyword::Wchar_t}, {"while"sv, Lexer::Keyword::While}};
+//---------------------------------------------------------------------------
+/// Alternative token for operators
+enum class AltToken : unsigned {
+    And,
+    Bitor,
+    Or,
+    Xor,
+    Compl,
+    Bitand,
+    And_eq,
+    Or_eq,
+    Xor_eq,
+    Not,
+    Not_eq
+};
+//---------------------------------------------------------------------------
+/// Alternative tokens list
+static const unordered_map<string_view, AltToken> alternativeTokens{
+    {"and"sv, AltToken::And}, {"bitor"sv, AltToken::Bitor}, {"or"sv, AltToken::Or}, {"xor"sv, AltToken::Xor}, {"compl"sv, AltToken::Compl}, {"bitand"sv, AltToken::Bitand}, {"and_eq"sv, AltToken::And_eq}, {"or_eq"sv, AltToken::Or_eq}, {"xor_eq"sv, AltToken::Xor_eq}, {"not"sv, AltToken::Not}, {"not_eq"sv, AltToken::Not_eq}};
+//---------------------------------------------------------------------------
+}
 //---------------------------------------------------------------------------
 Lexer::Lexer()
 // Constructor
@@ -114,7 +138,6 @@ void Lexer::handleIntegerSuffix()
         if ((c == 'l') || (c == 'L')) {
             consume();
             c = peek();
-            ;
             if ((c == 'l') || (c == 'L')) consume();
             return true;
         } else if ((c == 'z') || (c == 'Z')) {
@@ -146,9 +169,7 @@ Lexer::Token Lexer::handleBinaryLiteral()
         return Token::Error;
     }
     while (true) {
-        if (loc.byteOfs >= input.length())
-            ;
-        break;
+        if (loc.byteOfs >= input.length()) break;
         char c = input[loc.byteOfs];
         if ((c != '\'') && ((c < '0') || (c > '1'))) break;
         consume();
@@ -183,9 +204,7 @@ Lexer::Token Lexer::handleHexLiteral()
         return Token::Error;
     }
     while (true) {
-        if (loc.byteOfs >= input.length())
-            ;
-        break;
+        if (loc.byteOfs >= input.length()) break;
         char c = input[loc.byteOfs];
         if (c == '.') {
             consume();
@@ -214,9 +233,7 @@ Lexer::Token Lexer::handleOctalLiteral()
 {
     // No need to check for empty literals, we already know that we have at least two digits
     while (true) {
-        if (loc.byteOfs >= input.length())
-            ;
-        break;
+        if (loc.byteOfs >= input.length()) break;
         char c = input[loc.byteOfs];
         if ((c != '\'') && ((c < '0') || (c > '7'))) break;
         consume();
@@ -248,9 +265,7 @@ Lexer::Token Lexer::handleDecimalLiteral()
 
     // No need to check for empty literals, we already know that we have at least two digits
     while (true) {
-        if (loc.byteOfs >= input.length())
-            ;
-        break;
+        if (loc.byteOfs >= input.length()) break;
         char c = input[loc.byteOfs];
         if (c == '.') {
             consume();
@@ -353,8 +368,37 @@ Lexer::Token Lexer::handleIdentifier()
 
     // Check the identifier for keywords
     string_view i(input.data() + tokenStart.byteOfs, input.data() + loc.byteOfs);
-    if (auto iter = keywords.find(i); iter != keywords.end())
+    if (auto iter = keywords.find(i); iter != keywords.end()) {
+        switch (iter->second) {
+            case Keyword::Union: addError(tokenStart, "unsafe 'union's are not supported in Cpp2 - use std::variant instead"); break;
+            case Keyword::Delete: addError(tokenStart, "'delete' and owning raw pointers are not supported in Cpp2   - use unique.new<T>, shared.new<T>, or gc.new<T> instead (in that order)"); break;
+            default: break;
+        }
         return Token::Keyword;
+    }
+
+    // Check for alternative tokens
+    if (auto iter = alternativeTokens.find(i); iter != alternativeTokens.end()) {
+        switch (iter->second) {
+            case AltToken::And: return Token::LogicalAnd;
+            case AltToken::Bitor: return Token::Pipe;
+            case AltToken::Or: return Token::LogicalOr;
+            case AltToken::Xor: return Token::Carret;
+            case AltToken::Compl: return Token::Tilde;
+            case AltToken::Bitand: return Token::Ampersand;
+            case AltToken::And_eq: return Token::AmpersandEq;
+            case AltToken::Or_eq: return Token::PipeEq;
+            case AltToken::Xor_eq: return Token::CarretEq;
+            case AltToken::Not: return Token::Not;
+            case AltToken::Not_eq: return Token::NotEqualComparison;
+        }
+    }
+
+    // This here is ugly as it treats NULL like a keyword. But cppfront does the same
+    if (i == "NULL"sv) {
+        addError(tokenStart, "'NULL' is not supported in Cpp2 - for a local pointer variable, leave it uninitialized instead, and set it to a non-null value when you have one");
+    }
+
     return Token::Identifier;
 }
 //---------------------------------------------------------------------------
@@ -464,6 +508,7 @@ Lexer::Token Lexer::next()
             case '[': return Token::LeftBracket;
             case ']': return Token::RightBracket;
             case ';': return Token::Semicolon;
+            case ',': return Token::Comma;
             case '?': return Token::QuestionMark;
             case '$': return Token::Dollar;
             case '0':
@@ -484,12 +529,16 @@ Lexer::Token Lexer::next()
                 return handleDecimalLiteral();
             case '\'': return handleStringLiteral(0);
             case '"': return handleStringLiteral(0);
+            case '#':
+                while ((loc.byteOfs < input.length()) && (input[loc.byteOfs] != '\n') && (input[loc.byteOfs] != '\r')) consume();
+                addError(tokenStart, "preprocessor statements not supported in cpp2 mode");
+                return Token::Error;
             default:
                 if (isStringPrefix()) handleStringLiteral(isStringPrefix());
 
                 if (((c1 >= 'A') && (c1 <= 'Z')) || ((c1 >= 'a') && (c1 <= 'z')) || (c1 == '_'))
                     return handleIdentifier();
-                addError(tokenStart, string("unexpected_text ") + c1);
+                addError(tokenStart, string("unexpected text ") + c1);
                 return Token::Error;
         }
     }
