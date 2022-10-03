@@ -1,0 +1,241 @@
+%skeleton "lalr1.cc"
+%require "3.0"
+%define api.namespace {cpp2exp::parser}
+%define api.value.type {cpp2exp::AST*}
+%define parse.error verbose
+
+%lex-param { cpp2exp::ASTContainer& container }
+%lex-param { cpp2exp::Lexer& lexer }
+%parse-param { cpp2exp::ASTContainer& container }
+%parse-param { cpp2exp::Lexer& lexer }
+
+%code requires{
+#include "parser/Lexer.hpp"
+#include "parser/AST.hpp"
+}
+%code{
+static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTContainer& container, cpp2exp::Lexer& lexer);
+}
+
+
+// Lexer tokens
+%token EndOfFile 0 "end-of-file"
+%token Error
+%token AMPERSAND "'&'"
+%token AMPERSANDEQ "'&='"
+%token ARROW "'->'"
+%token ASSIGNMENT "'='"
+%token BINARYLITERAL "<binaryliteral>"
+%token CARRET "'^'"
+%token CARRETEQ "'^='"
+%token CHARACTERLITERAL "<characterliteral>"
+%token COLON "':'"
+%token COMMA "','"
+%token DECIMALLITERAL "<decimalliteral>"
+%token DOLLAR "'$'"
+%token DOT "'.'"
+%token ELLIPSIS "'...'"
+%token EQUALCOMPARISON "'=='"
+%token FLOATLITERAL "<floatliteral>"
+%token GREATER "'>'"
+%token GREATEREQ "'>='"
+%token HEXADECIMALLITERAL "<hexliteral>"
+%token IDENTIFIER "'<identifier>'"
+%token LEFTBRACE "'{'"
+%token LEFTBRACKET "'['"
+%token LEFTPAREN "'('"
+%token LEFTSHIFT "'<<'"
+%token LEFTSHIFTEQ "'<<='"
+%token LESS "'<'"
+%token LESSEQ "'<='"
+%token LOGICALAND "'&&'"
+%token LOGICALANDEQ "'&&='"
+%token LOGICALOR "'||'"
+%token LOGICALOREQ "'||='"
+%token MINUS "'-'"
+%token MINUSEQ "'-='"
+%token MINUSMINUS "'--'"
+%token MODULO "'%'"
+%token MODULOEQ "'%='"
+%token MULTIPLY "'*'"
+%token MULTIPLYEQ "'*='"
+%token NOT "'!'"
+%token NOTEQUALCOMPARISON "'!='"
+%token OCTALLITERAL "<octalliteral>"
+%token PIPE "'|'"
+%token PIPEEQ "'|='"
+%token PLUS "'+'"
+%token PLUSEQ "'+='"
+%token PLUSPLUS "'++'"
+%token QUESTIONMARK "'?'"
+%token RIGHTBRACE "'}'"
+%token RIGHTBRACKET "']'"
+%token RIGHTPAREN "')'"
+%token SCOPE "'::'"
+%token SEMICOLON "';'"
+%token SLASH "'/'"
+%token SLASHEQ "'/='"
+%token SPACESHIP "'<=>'"
+%token STRINGLITERAL "<stringliteral>"
+%token TILDE "'~'"
+%token TILDEEQ "'~='"
+
+// Keywords
+%token ALIGNAS "alignas"
+%token ALIGNOF "alignof"
+%token ASM "asm"
+%token AS "as"
+%token AUTO "auto"
+%token BOOL "bool"
+%token BREAK "break"
+%token CASE "case"
+%token CATCH "catch"
+%token CHAR "char"
+%token CHAR16_T "char16_t"
+%token CHAR32_T "char32_t"
+%token CHAR8_T "char8_t"
+%token CLASS "class"
+%token CO_AWAIT "co_await"
+%token CO_RETURN "co_return"
+%token CO_YIELD "co_yield"
+%token CONCEPT "concept"
+%token CONST "const"
+%token CONST_CAST "const_cast"
+%token CONSTEVAL "consteval"
+%token CONSTINIT "constinit"
+%token CONTINUE "continue"
+%token DELETE "delete"
+%token DECLTYPE "decltype"
+%token DEFAULT "default"
+%token DOUBLE "double"
+%token DO "do"
+%token DYNAMIC_CAST "dynamic_cast"
+%token ELSE "else"
+%token ENUM "enum"
+%token EXPLICIT "explicit"
+%token EXPORT "export"
+%token EXTERN "extern"
+%token FALSE "false"
+%token FLOAT "float"
+%token FOR "for"
+%token FRIEND "friend"
+%token GOTO "goto"
+%token IF "if"
+%token IMPORT "import"
+%token INLINE "inline"
+%token INT "int"
+%token IS "is"
+%token LONG "long"
+%token MODULE "module"
+%token MUTABLE "mutable"
+%token NAMESPACE "namespace"
+%token NEW "new"
+%token NOEXCEPT "noexcept"
+%token NULLPTR "nullptr"
+%token OPERATOR "operator"
+%token PRIVATE "private"
+%token PROTECTED "protected"
+%token PUBLIC "public"
+%token REGISTER "register"
+%token REINTERPRET_CAST "reinterpret_cast"
+%token REQUIRES "requires"
+%token RETURN "return"
+%token SHORT "short"
+%token SIGNED "signed"
+%token SIZEOF "sizeof"
+%token STATIC "static"
+%token STATIC_ASSERT "static_assert"
+%token STATIC_CAST "static_cast"
+%token STRUCT "struct"
+%token SWITCH "switch"
+%token TEMPLATE "template"
+%token THIS "this"
+%token THREAD_LOCAL "thread_local"
+%token THROWS "throws"
+%token THROW "throw"
+%token TRUE "true"
+%token TRY "try"
+%token TYPEDEF "typedef"
+%token TYPEID "typeid"
+%token TYPENAME "typename"
+%token UNION "union"
+%token UNSIGNED "unsigned"
+%token USING "using"
+%token VIRTUAL "virtual"
+%token VOID "void"
+%token VOLATILE "volatile"
+%token WCHAR_T "wchar_t"
+%token WHILE "while"
+
+%%
+
+stmtblock:
+   VOID
+;
+
+
+%%
+
+namespace cpp2exp { namespace parser {
+
+void parser::error(const std::string&) {
+   // TODO
+}
+
+}}
+
+// All non-keyword Lexer tokens and their corresponding bison tokens
+#define LEXER_TOKENS(X) \
+   X(Eof, EndOfFile) X(Error, Error) X(Ampersand, AMPERSAND) X(AmpersandEq, AMPERSANDEQ) X(Arrow, ARROW) X(Assignment, ASSIGNMENT) X(BinaryLiteral, BINARYLITERAL) X(Carret, CARRET) \
+   X(CarretEq, CARRETEQ) X(CharacterLiteral, CHARACTERLITERAL) X(Colon, COLON) X(Comma, COMMA) X(DecimalLiteral, DECIMALLITERAL) X(Dollar, DOLLAR) X(Dot, DOT) X(Ellipsis, ELLIPSIS) \
+   X(EqualComparison, EQUALCOMPARISON) X(FloatLiteral, FLOATLITERAL) X(Greater, GREATER) X(GreaterEq, GREATEREQ) X(HexadecimalLiteral, HEXADECIMALLITERAL) X(Identifier, IDENTIFIER) \
+   X(LeftBrace, LEFTBRACE) X(LeftBracket, LEFTBRACKET) X(LeftParen, LEFTPAREN) X(LeftShift, LEFTSHIFT) X(LeftShiftEq, LEFTSHIFTEQ) X(Less, LESS) X(LessEq, LESSEQ) \
+   X(LogicalAnd, LOGICALAND) X(LogicalAndEq, LOGICALANDEQ) X(LogicalOr, LOGICALOR) X(LogicalOrEq, LOGICALOREQ) X(Minus, MINUS) X(MinusEq, MINUSEQ) X(MinusMinus, MINUSMINUS) \
+   X(Modulo, MODULO) X(ModuloEq, MODULOEQ) X(Multiply, MULTIPLY) X(MultiplyEq, MULTIPLYEQ) X(Not, NOT) X(NotEqualComparison, NOTEQUALCOMPARISON) X(OctalLiteral, OCTALLITERAL) \
+   X(Pipe, PIPE) X(PipeEq, PIPEEQ) X(Plus, PLUS) X(PlusEq, PLUSEQ) X(PlusPlus, PLUSPLUS) X(QuestionMark, QUESTIONMARK) X(RightBrace, RIGHTBRACE) X(RightBracket, RIGHTBRACKET) \
+   X(RightParen, RIGHTPAREN) X(Scope, SCOPE) X(Semicolon, SEMICOLON) X(Slash, SLASH) X(SlashEq, SLASHEQ) X(Spaceship, SPACESHIP) X(StringLiteral, STRINGLITERAL) \
+   X(Tilde, TILDE) X(TildeEq, TILDEEQ)
+
+// All keyword tokens and their corresponding bison tokens
+#define LEXER_KEYWORDS(X) \
+   X(Alignas, ALIGNAS) X(Alignof, ALIGNOF) X(Asm, ASM) X(As, AS) X(Auto, AUTO) X(Bool, BOOL) X(Break, BREAK) X(Case, CASE) X(Catch, CATCH) X(Char, CHAR) X(Char16_t, CHAR16_T) \
+   X(Char32_t, CHAR32_T) X(Char8_t, CHAR8_T) X(Class, CLASS) X(Co_await, CO_AWAIT) X(Co_return, CO_RETURN) X(Co_yield, CO_YIELD) X(Concept, CONCEPT) X(Const, CONST) \
+   X(Const_cast, CONST_CAST) X(Consteval, CONSTEVAL) X(Constinit, CONSTINIT) X(Continue, CONTINUE) X(Delete, DELETE) X(Decltype, DECLTYPE) X(Default, DEFAULT) X(Double, DOUBLE) \
+   X(Do, DO) X(Dynamic_cast, DYNAMIC_CAST) X(Else, ELSE) X(Enum, ENUM) X(Explicit, EXPLICIT) X(Export, EXPORT) X(Extern, EXTERN) X(False, FALSE) X(Float, FLOAT) X(For, FOR) \
+   X(Friend, FRIEND) X(Goto, GOTO) X(If, IF) X(Import, IMPORT) X(Inline, INLINE) X(Int, INT) X(Is, IS) X(Long, LONG) X(Module, MODULE) X(Mutable, MUTABLE) X(Namespace, NAMESPACE) \
+   X(New, NEW) X(Noexcept, NOEXCEPT) X(Nullptr, NULLPTR) X(Operator, OPERATOR) X(Private, PRIVATE) X(Protected, PROTECTED) X(Public, PUBLIC) X(Register, REGISTER) \
+   X(Reinterpret_cast, REINTERPRET_CAST) X(Requires, REQUIRES) X(Return, RETURN) X(Short, SHORT) X(Signed, SIGNED) X(Sizeof, SIZEOF) X(Static, STATIC) X(Static_assert, STATIC_ASSERT) \
+   X(Static_cast, STATIC_CAST) X(Struct, STRUCT) X(Switch, SWITCH) X(Template, TEMPLATE) X(This, THIS) X(Thread_local, THREAD_LOCAL) X(Throws, THROWS) X(Throw, THROW) X(True, TRUE) \
+   X(Try, TRY) X(Typedef, TYPEDEF) X(Typeid, TYPEID) X(Typename, TYPENAME) X(Union, UNION) X(Unsigned, UNSIGNED) X(Using, USING) X(Virtual, VIRTUAL) X(Void, VOID) \
+   X(Volatile, VOLATILE) X(Wchar_t, WCHAR_T) X(While, WHILE)
+
+// The mapping table from Lexer tokens to bison tokens
+static constexpr cpp2exp::parser::parser::token::yytokentype tokenTable[]={
+#define A(X,Y) cpp2exp::parser::parser::token::Y,
+LEXER_TOKENS(A)
+LEXER_KEYWORDS(A)
+#undef A
+};
+
+// Verify that the mapping table is correct
+#define A(X,Y) static_assert(tokenTable[static_cast<unsigned>(cpp2exp::Lexer::Token::X)]==cpp2exp::parser::parser::token::Y,"incorrect token mapping");
+LEXER_TOKENS(A)
+#undef A
+#define A(X,Y) static_assert(tokenTable[static_cast<unsigned>(cpp2exp::Lexer::Token::Keyword) + static_cast<unsigned>(cpp2exp::Lexer::Keyword::X)]==cpp2exp::parser::parser::token::Y,"incorrect keyword mapping");
+LEXER_KEYWORDS(A)
+#undef A
+
+
+// Lexer interface
+static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTContainer& container, cpp2exp::Lexer& lexer)
+{
+   // Get the next token
+   cpp2exp::Lexer::TokenInfo info;
+   auto token=lexer.next(info);
+
+   // Construct a token node
+   *yylval=new (container.allocateRaw(sizeof(cpp2exp::ast::Token))) cpp2exp::ast::Token(info.content, info.fromLine, info.fromColumn, info.toLine, info.toColumn);
+
+   // And return the mapped token
+   return (token == cpp2exp::Lexer::Token::Keyword) ? tokenTable[static_cast<unsigned>(info.keyword)+ static_cast<unsigned>(cpp2exp::Lexer::Token::Keyword)] : tokenTable[static_cast<unsigned>(token)];
+}

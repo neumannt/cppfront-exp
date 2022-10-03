@@ -48,7 +48,6 @@ class Lexer {
         GreaterEq,
         HexadecimalLiteral,
         Identifier,
-        Keyword,
         LeftBrace,
         LeftBracket,
         LeftParen,
@@ -87,6 +86,7 @@ class Lexer {
         StringLiteral,
         Tilde,
         TildeEq,
+        Keyword, // Keyword must be last for the bison parser
     };
     /// Known keywords
     enum class Keyword : unsigned {
@@ -239,8 +239,20 @@ class Lexer {
     /// Get the error list
     auto& getErrors() const { return errors; }
 
+    /// Description of tokens
+    struct TokenInfo {
+        /// The content
+        std::string_view content;
+        /// The keyword (if any)
+        Lexer::Keyword keyword;
+        /// The positions
+        unsigned fromLine, fromColumn, toLine, toColumn;
+    };
+
     /// Get the next token
     Token next();
+    /// Get the next token and collect the token description
+    Token next(TokenInfo& info);
 };
 //---------------------------------------------------------------------------
 }

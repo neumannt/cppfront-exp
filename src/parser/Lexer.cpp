@@ -1,4 +1,5 @@
 #include "Lexer.hpp"
+#include "AST.hpp"
 #include <fstream>
 #include <unordered_map>
 //---------------------------------------------------------------------------
@@ -542,6 +543,19 @@ Lexer::Token Lexer::next()
                 return Token::Error;
         }
     }
+}
+//---------------------------------------------------------------------------
+Lexer::Token Lexer::next(TokenInfo& info)
+// Collect the token
+{
+    Token token = next();
+    info.content = string_view(input.data() + tokenStart.byteOfs, input.data() + loc.byteOfs);
+    if (token == Token::Keyword) info.keyword = keywords.find(info.content)->second;
+    info.fromLine = tokenStart.line;
+    info.fromColumn = tokenStart.column;
+    info.toLine = loc.line;
+    info.toColumn = loc.column;
+    return token;
 }
 //---------------------------------------------------------------------------
 }
