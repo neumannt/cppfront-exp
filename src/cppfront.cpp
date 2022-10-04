@@ -1,4 +1,4 @@
-#include "parser/Lexer.hpp"
+#include "parser/Parser.hpp"
 #include <iostream>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -7,7 +7,7 @@
 //---------------------------------------------------------------------------
 using namespace std;
 //---------------------------------------------------------------------------
-static void printErrors(string_view fileName, const vector<cpp2exp::Lexer::Error>& errors) {
+static void printErrors(string_view fileName, const vector<cpp2exp::Error>& errors) {
     for (auto& e : errors) {
         cout << fileName << ":" << e.loc.line << ":" << e.loc.column << ":" << e.text << endl;
     }
@@ -18,16 +18,12 @@ int main(int argc, char* argv[]) {
         cout << "usage: " << argv[0] << " input" << endl;
         return 1;
     }
-    cpp2exp::Lexer lexer;
-    if (!lexer.loadFile(argv[1])) {
-        printErrors(argv[1], lexer.getErrors());
+    cpp2exp::Parser parser;
+    if (!parser.parseFile(argv[1])) {
+        printErrors(argv[1], parser.getErrors());
         return 1;
-    }
-    while (lexer.next() != cpp2exp::Lexer::Token::Eof) {}
-    if (!lexer.getErrors().empty()) {
-        printErrors(argv[1], lexer.getErrors());
     } else {
-        cout << "lexing ok" << endl;
+        cout << "parsing ok" << endl;
     }
     return 0;
 }

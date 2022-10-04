@@ -11,6 +11,7 @@
 
 %code requires{
 #include "parser/Lexer.hpp"
+#include "parser/Parser.hpp"
 #include "parser/AST.hpp"
 }
 %code{
@@ -169,17 +170,33 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 
 %%
 
-stmtblock:
-   VOID
+translation-unit:
+   declaration-seq { container.setResult($$ = ast::TranslationUnit::build(container, $1)); }
+ | %empty { container.setResult($$ = ast::TranslationUnit::build(container, nullptr)); }
 ;
 
+identifier: IDENTIFIER { $$ = $1; };
+
+unnamed-declaration:
+VOID { /* TODO */ }
+;
+
+
+declaration:
+   identifier unnamed-declaration { $$ = ast::Declaration::build(container, $1, $2); }
+;
+
+declaration-seq:
+   declaration SEMICOLON { $$ = ast::DeclarationSeq::build(container, $1); }
+ | declaration-seq declaration SEMICOLON { $$ = ast::DeclarationSeq::append(container, $1, $2); }
+;
 
 %%
 
 namespace cpp2exp { namespace parser {
 
-void parser::error(const std::string&) {
-   // TODO
+void parser::error(const std::string& s) {
+   lexer.addParseError(s);
 }
 
 }}
@@ -238,4 +255,18 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 
    // And return the mapped token
    return (token == cpp2exp::Lexer::Token::Keyword) ? tokenTable[static_cast<unsigned>(info.keyword)+ static_cast<unsigned>(cpp2exp::Lexer::Token::Keyword)] : tokenTable[static_cast<unsigned>(token)];
+}
+
+namespace cpp2exp {
+
+const AST* Parser::parseImpl()
+{
+   Lexer lexer(errors);
+   lexer.reset(content);
+
+   parser::parser parser(astContainer, lexer);
+   if (parser.parse()!=0) return nullptr;
+   return astContainer.getResult();
+}
+
 }

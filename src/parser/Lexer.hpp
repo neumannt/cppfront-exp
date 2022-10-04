@@ -10,19 +10,14 @@
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
+struct Error;
+//---------------------------------------------------------------------------
 /// A lexer
 class Lexer {
     public:
     /// The source location
     struct SourceLocation {
         unsigned line = 0, column = 0, byteOfs = 0;
-    };
-    /// An error description
-    struct Error {
-        /// The occurrence in the source
-        SourceLocation loc;
-        /// The text
-        std::string text;
     };
     /// Known tokens
     enum class Token : unsigned {
@@ -179,9 +174,9 @@ class Lexer {
 
     private:
     /// The input
-    std::string input;
+    std::string_view input;
     /// The errors
-    std::vector<Error> errors;
+    std::vector<Error>& errors;
     /// The comments
     std::vector<std::pair<SourceLocation, std::string_view>> comments;
     /// The current position
@@ -230,12 +225,12 @@ class Lexer {
 
     public:
     /// Constructor
-    Lexer();
+    explicit Lexer(std::vector<Error>& errors);
     /// Destructor
     ~Lexer();
 
-    /// Load the input from a file, reset the lexer
-    bool loadFile(const std::string& fileName);
+    /// Reset the lexer
+    void reset(std::string_view input);
     /// Get the error list
     auto& getErrors() const { return errors; }
 
@@ -253,6 +248,9 @@ class Lexer {
     Token next();
     /// Get the next token and collect the token description
     Token next(TokenInfo& info);
+
+    /// Add an error from the bison parser
+    void addParseError(std::string text) { addError(tokenStart, std::move(text)); }
 };
 //---------------------------------------------------------------------------
 }

@@ -1,6 +1,6 @@
 #include "Lexer.hpp"
 #include "AST.hpp"
-#include <fstream>
+#include "Parser.hpp"
 #include <unordered_map>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -38,7 +38,8 @@ static const unordered_map<string_view, AltToken> alternativeTokens{
 //---------------------------------------------------------------------------
 }
 //---------------------------------------------------------------------------
-Lexer::Lexer()
+Lexer::Lexer(vector<Error>& errors)
+    : errors(errors)
 // Constructor
 {
 }
@@ -60,17 +61,11 @@ void Lexer::addComment(SourceLocation loc, string_view text)
     comments.emplace_back(loc, text);
 }
 //---------------------------------------------------------------------------
-bool Lexer::loadFile(const string& fileName)
-// Load the input from a file, reset the lexer
+void Lexer::reset(string_view newInput)
+// Reset the lexer
 {
-    ifstream in(fileName);
-    if (!in.is_open()) {
-        addError({}, "unable top open " + fileName);
-        return false;
-    }
-    input = string(istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    input = newInput;
     loc = {1, 1, 0};
-    return true;
 }
 //---------------------------------------------------------------------------
 static constexpr unsigned tabWidth = 8;

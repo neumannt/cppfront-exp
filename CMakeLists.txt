@@ -11,6 +11,7 @@ add_executable(cppfront-exp
 	src/cppfront.cpp
 	src/parser/AST.cpp
 	src/parser/Lexer.cpp
+	src/parser/Parser.cpp
 	${BISON_Cpp2Parser_OUTPUTS}
 )
 
