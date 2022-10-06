@@ -18,6 +18,7 @@ class AST {
         Token,
         Declaration,
         DeclarationSeq,
+        UnnamedDeclaration,
         TranslationUnit
     };
 
@@ -117,6 +118,28 @@ class Declaration : public ASTNode<Declaration, AST::Type::Declaration> {
 
     /// Build
     static Declaration* build(ASTContainer& c, const AST* name, const AST* body) { return new (c.allocate<Declaration>()) Declaration(Token::dynCast(name), body); }
+};
+//---------------------------------------------------------------------------
+/// An unnamed declaration
+class UnnamedDeclaration : public ASTNode<Declaration, AST::Type::UnnamedDeclaration> {
+    public:
+    /// Subtypes
+    enum SubType {
+        Value,
+        Function
+    };
+    /// The subtype
+    SubType subType;
+    /// The declared type
+    const AST* declaredType;
+    /// The value
+    const AST* value;
+
+    /// Constructor
+    UnnamedDeclaration(SubType subType, const AST* declaredType, const AST* value) : subType(subType), declaredType(declaredType), value(value) {}
+
+    /// Build
+    static UnnamedDeclaration* build(ASTContainer& c, SubType subType, const AST* declaredType, const AST* value) { return new (c.allocate<UnnamedDeclaration>()) UnnamedDeclaration(subType, declaredType, value); }
 };
 //---------------------------------------------------------------------------
 /// A list of declarations

@@ -27,8 +27,8 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token ARROW "'->'"
 %token ASSIGNMENT "'='"
 %token BINARYLITERAL "<binaryliteral>"
-%token CARRET "'^'"
-%token CARRETEQ "'^='"
+%token CARET "'^'"
+%token CARETEQ "'^='"
 %token CHARACTERLITERAL "<characterliteral>"
 %token COLON "':'"
 %token COMMA "','"
@@ -72,6 +72,8 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token RIGHTBRACE "'}'"
 %token RIGHTBRACKET "']'"
 %token RIGHTPAREN "')'"
+%token RIGHTSHIFT "'>>'"
+%token RIGHTSHIFTEQ "'>>='"
 %token SCOPE "'::'"
 %token SEMICOLON "';'"
 %token SLASH "'/'"
@@ -168,6 +170,17 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token WCHAR_T "wchar_t"
 %token WHILE "while"
 
+// Softkeywords
+%token PRE "pre"
+%token POST "post"
+%token ASSERT "assert"
+%token IN "in"
+%token COPY "copy"
+%token INOUT "inout"
+%token OUT "out"
+%token MOVE "move"
+%token FORWARD "forward"
+
 %%
 
 translation-unit:
@@ -175,12 +188,146 @@ translation-unit:
  | %empty { container.setResult($$ = ast::TranslationUnit::build(container, nullptr)); }
 ;
 
-identifier: IDENTIFIER { $$ = $1; };
+SOFTKEYWORD: PRE | POST | ASSERT | IN | COPY | INOUT | OUT | MOVE | FORWARD;
 
-unnamed-declaration:
-VOID { /* TODO */ }
+identifier:
+   IDENTIFIER
+ | SOFTKEYWORD
+;
+string-literal: STRINGLITERAL;
+
+parameter-declaration-list:
+   LEFTPAREN parameter-declaration-seq-opt RIGHTPAREN { $$ = ast::ParameterDeclarationList::build(container, $1); }
 ;
 
+parameter-declaration-seq:
+   parameter-declaration { $$ = ast::ParameterDeclarationSeq::build($1); }
+ | parameter-declaration-seq COMMA parameter-declaration { $$ = ast::ParameterDeclarationSeq::append($1, $2); }
+;
+
+parameter-declaration-seq-opt:
+   parameter-declaration-seq
+ | %empty { $$ = nullptr; }
+;
+
+parameter-declaration:
+   parameter-direction declaration { $$ = ast::ParameterDeclaration::build(container, $1, $2); }
+ | declaration { $$ = ast::ParameterDeclaration::build(container, nullptr, 1); }
+;
+
+parameter-direction:
+   IN
+ | COPY
+ | INOUT
+ | OUT
+ | MOVE
+ | FORWARD
+;
+
+function-type:
+   parameter-declaration-list throws-specifier-opt return-list-opt contract-seq-opt { $$ = ast::FunctionType::build(container, $1, $2, $3, $4); }
+;
+
+throws-specifier-opt:
+   THROWS
+ | %empty { $$ = nullptr; }
+;
+
+return-list-opt:
+   id-expression { $$ = ast::ReturnList::build(container, ast::ReturnList::Single, $1); }
+ | parameter-declaration-list { $$ = ast::ReturnList::build(container, ast::ReturnList::Multiple, $1); }
+ | %empty { $$ = nullptr; }
+;
+
+contract:
+   LEFTBRACKET LEFTBRACKET contract-kind id-expression-opt COLON logical-or-expression RIGHTBRACKET RIGHTBRACKET { $$ = ast::Contract::build(container, $3, $4, $6, nullptr); }
+ | LEFTBRACKET LEFTBRACKET contract-kind id-expression-opt COLON logical-or-expression COMMA string-literal RIGHTBRACKET RIGHTBRACKET { $$ = ast::Contract::build(container, $3, $4, $6, $8); }
+;
+
+contract-kind:
+   PRE
+ | POST
+ | ASSERT
+;
+
+contract-seq:
+   contract { $$ = ast::ContractSeq::build(container, $1); }
+ | contract-seq contract { $$ = ast::ContractSeq::append(container, $1, $2); }
+;
+
+contract-seq-opt:
+   contract-seq
+ | %empty { $$ = nullptr; }
+;
+
+
+unnamed-declaration:
+   COLON function-type ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnanemdDeclaration::Function, $2, $4); }
+ | COLON id-expression-opt ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnanmedDeclaration::Value, $2, $4); }
+ | COLON id-expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
+;
+
+unqualified-id:
+   const-opt identifier { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Normal, $1, $2); }
+ | const-opt template-id { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Template, $1, $2); }
+;
+
+const-opt:
+   CONST
+ | %empty { $$ = nullptr; }
+;
+
+template-id:
+   identifier LESS template-argument-list-opt GREATER { $$ = ast::TemplateId::build(container, $1, $3); }
+;
+
+template-argument-list:
+   template-argument { $$ = ast::TemplateArgumentList::build(container, $1); }
+ | template-argument-list COMMA template-argument { $$ = ast::TemplateArgumentList::append($1, $3); }
+;
+
+template-argument-list-opt:
+   template-argument-list
+ | %empty { $$ = nullptr; }
+;
+
+template-argument:
+   expression-templ { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::Expression, $1); }
+ | id-expression { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::IdExpression, $1); }
+;
+
+
+qualified-id:
+   nested-name-specifier unqualified-id { $$ = ast::QualifiedId::build(container, ast::QualifiedId::Nested, $1, $2); }
+ | member-name-specifier unqualified-id { $$ = ast::QualifiedId::build(container, ast::QualifiedId::Member, $1, $2); }
+;
+qualified-id-after-dot:
+   nested-name-specifier unqualified-id { $$ = ast::QualifiedId::build(container, ast::QualifiedId::Nested, $1, $2); }
+;
+
+nested-name-specifier:
+   SCOPE { $$ = nullptr; }
+ | unqualified-id SCOPE { $$ = $1; }
+;
+
+member-name-specifier:
+   unqualified-id DOT { $$ = $1; }
+;
+
+id-expression:
+   unqualified-id
+ | qualified-id
+;
+id-expression-after-dot:
+   unqualified-id
+ | qualified-id-after-dot
+;
+
+
+id-expression-opt:
+   id-expression
+ | %empty { $$ = nullptr; }
+;
 
 declaration:
    identifier unnamed-declaration { $$ = ast::Declaration::build(container, $1, $2); }
@@ -189,6 +336,173 @@ declaration:
 declaration-seq:
    declaration SEMICOLON { $$ = ast::DeclarationSeq::build(container, $1); }
  | declaration-seq declaration SEMICOLON { $$ = ast::DeclarationSeq::append(container, $1, $2); }
+;
+
+expression:
+   assignment-expression
+;
+expression-templ:
+   assignment-expression-templ
+;
+
+expression-list:
+   expression { $$ = ast::ExpressionList::build(container, $1); }
+ | expression-list COMMA expression { $$ = ast::ExpressionList::append(container, $1, $3); }
+;
+
+assignment-expression:
+   logical-or-expression
+ | logical-or-expression assignment-operator assignment-expression { $$ = ast::AssignmentExpression::build(container, $1, $2, $3); }
+;
+assignment-expression-templ:
+   logical-or-expression-templ
+ | logical-or-expression-templ assignment-operator assignment-expression-templ { $$ = ast::AssignmentExpression::build(container, $1, $2, $3); }
+;
+
+assignment-operator:
+   ASSIGNMENT
+ | MULTIPLYEQ
+ | SLASHEQ
+ | MODULOEQ
+ | PLUSEQ
+ | MINUSEQ
+ | RIGHTSHIFTEQ
+ | LEFTSHIFTEQ
+ | AMPERSANDEQ
+ | CARETEQ
+ | PIPEEQ
+;
+
+logical-or-expression:
+   logical-and-expression
+ | logical-or-expression LOGICALOR logical-and-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalOr, $1, $3); }
+;
+logical-or-expression-templ:
+   logical-and-expression-templ
+ | logical-or-expression-templ LOGICALOR logical-and-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalOr, $1, $3); }
+;
+
+logical-and-expression:
+   bit-or-expression
+ | logical-and-expression LOGICALAND bit-or-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalAnd, $1, $3); }
+;
+logical-and-expression-templ:
+   bit-or-expression-templ
+ | logical-and-expression-templ LOGICALAND bit-or-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalAnd, $1, $3); }
+;
+
+bit-or-expression:
+   bit-xor-expression
+ | bit-or-expression PIPE bit-xor-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitOr, $1, $3); }
+;
+bit-or-expression-templ:
+   bit-xor-expression-templ
+ | bit-or-expression-templ PIPE bit-xor-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitOr, $1, $3); }
+;
+
+bit-xor-expression:
+   bit-and-expression
+ | bit-xor-expression CARET bit-and-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitXor, $1, $3); }
+;
+bit-xor-expression-templ:
+   bit-and-expression-templ
+ | bit-xor-expression-templ CARET bit-and-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitXor, $1, $3); }
+;
+
+bit-and-expression:
+   equality-expression
+ | bit-and-expression AMPERSAND equality-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitAnd, $1, $3); }
+;
+bit-and-expression-templ:
+   equality-expression-templ
+ | bit-and-expression-templ AMPERSAND equality-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitAnd, $1, $3); }
+;
+
+equality-expression:
+   relational-expression
+ | equality-expression EQUALCOMPARISON relational-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Equal, $1, $3); }
+ | equality-expression NOTEQUALCOMPARISON relational-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::NotEqual, $1, $3); }
+;
+equality-expression-templ:
+   relational-expression-templ
+ | equality-expression-templ EQUALCOMPARISON relational-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::Equal, $1, $3); }
+ | equality-expression-templ NOTEQUALCOMPARISON relational-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::NotEqual, $1, $3); }
+;
+
+relational-expression:
+   compare-expression
+ | relational-expression LESS compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Less, $1, $3); }
+ | relational-expression GREATER compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Greater, $1, $3); }
+ | relational-expression LESSEQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LessEq, $1, $3); }
+ | relational-expression GREATEREQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::GreaterEq, $1, $3); }
+;
+// In template context a greater is interpreted as closing the template
+relational-expression-templ:
+   compare-expression
+ | relational-expression-templ LESS compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Less, $1, $3); }
+ | relational-expression-templ LESSEQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LessEq, $1, $3); }
+ | relational-expression-templ GREATEREQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::GreaterEq, $1, $3); }
+;
+
+compare-expression:
+   shift-expression
+ | compare-expression SPACESHIP shift-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Spaceship, $1, $3); }
+;
+
+shift-expression:
+   additive-expression
+ | shift-expression LEFTSHIFT additive-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LeftShift, $1, $3); }
+ | shift-expression RIGHTSHIFT additive-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::RightShift, $1, $3); }
+;
+
+additive-expression:
+   multiplicative-expression
+ | additive-expression PLUS multiplicative-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Plus, $1, $3); }
+ | additive-expression MINUS multiplicative-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Minus, $1, $3); }
+;
+
+multiplicative-expression:
+   is-as-expression
+ | multiplicative-expression MULTIPLY is-as-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Mul, $1, $3); }
+ | multiplicative-expression SLASH is-as-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Div, $1, $3); }
+ | multiplicative-expression MODULO is-as-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Modulo, $1, $3); }
+;
+
+is-as-expression:
+   prefix-expression
+;
+
+prefix-expression:
+   postfix-expression
+ | prefix-operator prefix-expression { $$ = ast::PrefixExpression::build(container, $1, $2); }
+;
+
+prefix-operator:
+   NOT
+;
+
+postfix-expression:
+   primary-expression
+ | postfix-expression postfix-operator { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression LEFTBRACKET expression-list RIGHTBRACKET { $$ = ast::BracketExpression::build(container, $1, $2); }
+ | postfix-expression LEFTPAREN expression-list RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, $2); }
+ | postfix-expression LEFTPAREN RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, nullptr); }
+ | postfix-expression DOT id-expression-after-dot { $$ = ast::DotExpression::build(container, $1, $2); }
+;
+
+postfix-operator:
+   PLUSPLUS
+ | MINUSMINUS
+ | MULTIPLY
+ | AMPERSAND
+ | TILDE
+ | DOLLAR
+;
+
+primary-expression: DOLLAR { TODO(); };
+
+statement:
+   VOID { TODO(); }
 ;
 
 %%
@@ -203,15 +517,15 @@ void parser::error(const std::string& s) {
 
 // All non-keyword Lexer tokens and their corresponding bison tokens
 #define LEXER_TOKENS(X) \
-   X(Eof, EndOfFile) X(Error, Error) X(Ampersand, AMPERSAND) X(AmpersandEq, AMPERSANDEQ) X(Arrow, ARROW) X(Assignment, ASSIGNMENT) X(BinaryLiteral, BINARYLITERAL) X(Carret, CARRET) \
-   X(CarretEq, CARRETEQ) X(CharacterLiteral, CHARACTERLITERAL) X(Colon, COLON) X(Comma, COMMA) X(DecimalLiteral, DECIMALLITERAL) X(Dollar, DOLLAR) X(Dot, DOT) X(Ellipsis, ELLIPSIS) \
+   X(Eof, EndOfFile) X(Error, Error) X(Ampersand, AMPERSAND) X(AmpersandEq, AMPERSANDEQ) X(Arrow, ARROW) X(Assignment, ASSIGNMENT) X(BinaryLiteral, BINARYLITERAL) X(Caret, CARET) \
+   X(CaretEq, CARETEQ) X(CharacterLiteral, CHARACTERLITERAL) X(Colon, COLON) X(Comma, COMMA) X(DecimalLiteral, DECIMALLITERAL) X(Dollar, DOLLAR) X(Dot, DOT) X(Ellipsis, ELLIPSIS) \
    X(EqualComparison, EQUALCOMPARISON) X(FloatLiteral, FLOATLITERAL) X(Greater, GREATER) X(GreaterEq, GREATEREQ) X(HexadecimalLiteral, HEXADECIMALLITERAL) X(Identifier, IDENTIFIER) \
    X(LeftBrace, LEFTBRACE) X(LeftBracket, LEFTBRACKET) X(LeftParen, LEFTPAREN) X(LeftShift, LEFTSHIFT) X(LeftShiftEq, LEFTSHIFTEQ) X(Less, LESS) X(LessEq, LESSEQ) \
    X(LogicalAnd, LOGICALAND) X(LogicalAndEq, LOGICALANDEQ) X(LogicalOr, LOGICALOR) X(LogicalOrEq, LOGICALOREQ) X(Minus, MINUS) X(MinusEq, MINUSEQ) X(MinusMinus, MINUSMINUS) \
    X(Modulo, MODULO) X(ModuloEq, MODULOEQ) X(Multiply, MULTIPLY) X(MultiplyEq, MULTIPLYEQ) X(Not, NOT) X(NotEqualComparison, NOTEQUALCOMPARISON) X(OctalLiteral, OCTALLITERAL) \
    X(Pipe, PIPE) X(PipeEq, PIPEEQ) X(Plus, PLUS) X(PlusEq, PLUSEQ) X(PlusPlus, PLUSPLUS) X(QuestionMark, QUESTIONMARK) X(RightBrace, RIGHTBRACE) X(RightBracket, RIGHTBRACKET) \
-   X(RightParen, RIGHTPAREN) X(Scope, SCOPE) X(Semicolon, SEMICOLON) X(Slash, SLASH) X(SlashEq, SLASHEQ) X(Spaceship, SPACESHIP) X(StringLiteral, STRINGLITERAL) \
-   X(Tilde, TILDE) X(TildeEq, TILDEEQ)
+   X(RightParen, RIGHTPAREN) X(RightShift, RIGHTSHIFT) X(RightShiftEq, RIGHTSHIFTEQ) X(Scope, SCOPE) X(Semicolon, SEMICOLON) X(Slash, SLASH) X(SlashEq, SLASHEQ) \
+   X(Spaceship, SPACESHIP) X(StringLiteral, STRINGLITERAL) X(Tilde, TILDE) X(TildeEq, TILDEEQ)
 
 // All keyword tokens and their corresponding bison tokens
 #define LEXER_KEYWORDS(X) \

@@ -28,8 +28,8 @@ class Lexer {
         Arrow,
         Assignment,
         BinaryLiteral,
-        Carret,
-        CarretEq,
+        Caret,
+        CaretEq,
         CharacterLiteral,
         Colon,
         Comma,
@@ -73,6 +73,8 @@ class Lexer {
         RightBrace,
         RightBracket,
         RightParen,
+        RightShift,
+        RightShiftEq,
         Scope,
         Semicolon,
         Slash,
@@ -169,7 +171,17 @@ class Lexer {
         Void,
         Volatile,
         Wchar_t,
-        While
+        While,
+        // Soft keywords
+        Pre,
+        Post,
+        Assert,
+        In,
+        Copy,
+        Inout,
+        Out,
+        Move,
+        Forward
     };
 
     private:
