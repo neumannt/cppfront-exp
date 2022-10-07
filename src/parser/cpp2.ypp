@@ -278,7 +278,7 @@ const-opt:
 ;
 
 template-id:
-   identifier LESS template-argument-list-opt GREATER { $$ = ast::TemplateId::build(container, $1, $3); }
+   identifier NOT LEFTBRACKET template-argument-list-opt RIGHTBRACKET { $$ = ast::TemplateId::build(container, $1, $3); }
 ;
 
 template-argument-list:
@@ -292,7 +292,7 @@ template-argument-list-opt:
 ;
 
 template-argument:
-   expression-templ { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::Expression, $1); }
+   expression { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::Expression, $1); }
  | id-expression { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::IdExpression, $1); }
 ;
 
@@ -341,9 +341,6 @@ declaration-seq:
 expression:
    assignment-expression
 ;
-expression-templ:
-   assignment-expression-templ
-;
 
 expression-list:
    expression { $$ = ast::ExpressionList::build(container, $1); }
@@ -353,10 +350,6 @@ expression-list:
 assignment-expression:
    logical-or-expression
  | logical-or-expression assignment-operator assignment-expression { $$ = ast::AssignmentExpression::build(container, $1, $2, $3); }
-;
-assignment-expression-templ:
-   logical-or-expression-templ
- | logical-or-expression-templ assignment-operator assignment-expression-templ { $$ = ast::AssignmentExpression::build(container, $1, $2, $3); }
 ;
 
 assignment-operator:
@@ -377,56 +370,31 @@ logical-or-expression:
    logical-and-expression
  | logical-or-expression LOGICALOR logical-and-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalOr, $1, $3); }
 ;
-logical-or-expression-templ:
-   logical-and-expression-templ
- | logical-or-expression-templ LOGICALOR logical-and-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalOr, $1, $3); }
-;
 
 logical-and-expression:
    bit-or-expression
  | logical-and-expression LOGICALAND bit-or-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalAnd, $1, $3); }
-;
-logical-and-expression-templ:
-   bit-or-expression-templ
- | logical-and-expression-templ LOGICALAND bit-or-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::LogicalAnd, $1, $3); }
 ;
 
 bit-or-expression:
    bit-xor-expression
  | bit-or-expression PIPE bit-xor-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitOr, $1, $3); }
 ;
-bit-or-expression-templ:
-   bit-xor-expression-templ
- | bit-or-expression-templ PIPE bit-xor-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitOr, $1, $3); }
-;
 
 bit-xor-expression:
    bit-and-expression
  | bit-xor-expression CARET bit-and-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitXor, $1, $3); }
-;
-bit-xor-expression-templ:
-   bit-and-expression-templ
- | bit-xor-expression-templ CARET bit-and-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitXor, $1, $3); }
 ;
 
 bit-and-expression:
    equality-expression
  | bit-and-expression AMPERSAND equality-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitAnd, $1, $3); }
 ;
-bit-and-expression-templ:
-   equality-expression-templ
- | bit-and-expression-templ AMPERSAND equality-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::BitAnd, $1, $3); }
-;
 
 equality-expression:
    relational-expression
  | equality-expression EQUALCOMPARISON relational-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Equal, $1, $3); }
  | equality-expression NOTEQUALCOMPARISON relational-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::NotEqual, $1, $3); }
-;
-equality-expression-templ:
-   relational-expression-templ
- | equality-expression-templ EQUALCOMPARISON relational-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::Equal, $1, $3); }
- | equality-expression-templ NOTEQUALCOMPARISON relational-expression-templ { $$ = ast::BinaryExpression::build(container, BinaryExpression::NotEqual, $1, $3); }
 ;
 
 relational-expression:
@@ -435,13 +403,6 @@ relational-expression:
  | relational-expression GREATER compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Greater, $1, $3); }
  | relational-expression LESSEQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LessEq, $1, $3); }
  | relational-expression GREATEREQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::GreaterEq, $1, $3); }
-;
-// In template context a greater is interpreted as closing the template
-relational-expression-templ:
-   compare-expression
- | relational-expression-templ LESS compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::Less, $1, $3); }
- | relational-expression-templ LESSEQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::LessEq, $1, $3); }
- | relational-expression-templ GREATEREQ compare-expression { $$ = ast::BinaryExpression::build(container, BinaryExpression::GreaterEq, $1, $3); }
 ;
 
 compare-expression:
@@ -483,23 +444,19 @@ prefix-operator:
 
 postfix-expression:
    primary-expression
- | postfix-expression postfix-operator { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression PLUSPLUS { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression MINUSMINUS { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ // TODO | postfix-expression MULTIPLY { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ // TODO | postfix-expression AMPERSAND { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression TILDE { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression DOLLAR { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression LEFTBRACKET expression-list RIGHTBRACKET { $$ = ast::BracketExpression::build(container, $1, $2); }
  | postfix-expression LEFTPAREN expression-list RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, $2); }
  | postfix-expression LEFTPAREN RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, nullptr); }
  | postfix-expression DOT id-expression-after-dot { $$ = ast::DotExpression::build(container, $1, $2); }
 ;
 
-postfix-operator:
-   PLUSPLUS
- | MINUSMINUS
- | MULTIPLY
- | AMPERSAND
- | TILDE
- | DOLLAR
-;
-
-primary-expression: DOLLAR { TODO(); };
+primary-expression: DECIMALLITERAL { TODO(); };
 
 statement:
    VOID { TODO(); }
