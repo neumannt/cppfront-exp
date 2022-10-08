@@ -105,6 +105,7 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token CONST "const"
 %token CONST_CAST "const_cast"
 %token CONSTEVAL "consteval"
+%token CONSTEXPR "constexpr"
 %token CONSTINIT "constinit"
 %token CONTINUE "continue"
 %token DELETE "delete"
@@ -126,6 +127,7 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token IF "if"
 %token IMPORT "import"
 %token INLINE "inline"
+%token INSPECT "inspect"
 %token INT "int"
 %token IS "is"
 %token LONG "long"
@@ -180,6 +182,8 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token OUT "out"
 %token MOVE "move"
 %token FORWARD "forward"
+%token LET "let"
+%token NEXT "next"
 
 %%
 
@@ -188,7 +192,7 @@ translation-unit:
  | %empty { container.setResult($$ = ast::TranslationUnit::build(container, nullptr)); }
 ;
 
-SOFTKEYWORD: PRE | POST | ASSERT | IN | COPY | INOUT | OUT | MOVE | FORWARD;
+SOFTKEYWORD: PRE | POST | ASSERT | IN | COPY | INOUT | OUT | MOVE | FORWARD | LET | NEXT;
 
 identifier:
    IDENTIFIER
@@ -293,7 +297,7 @@ template-argument-list-opt:
 
 template-argument:
    expression { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::Expression, $1); }
- | id-expression { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::IdExpression, $1); }
+ // TODO | id-expression { $$ = ast::TemplateArgument::build(container, ast::TemplateArgument::IdExpression, $1); }
 ;
 
 
@@ -456,10 +460,112 @@ postfix-expression:
  | postfix-expression DOT id-expression-after-dot { $$ = ast::DotExpression::build(container, $1, $2); }
 ;
 
-primary-expression: DECIMALLITERAL { TODO(); };
+primary-expression:
+   literal
+ | LEFTPAREN expression-list RIGHTPAREN { $$ = $2; }
+// TODO | id-expression-after-dot
+ | unnamed-declaration SEMICOLON
+// TODO | inspect-expression
+;
+
+literal:
+   identifier { $$ = ast::Literal::build(container, ast::Literal::Identifier, $1); }
+ | DECIMALLITERAL { $$ = ast::Literal::build(container, ast::Literal::Decimal, $1); }
+ | FLOATLITERAL { $$ = ast::Literal::build(container, ast::Literal::Float, $1); }
+ | STRINGLITERAL { $$ = ast::Literal::build(container, ast::Literal::String, $1); }
+ | CHARACTERLITERAL { $$ = ast::Literal::build(container, ast::Literal::Char, $1); }
+ | BINARYLITERAL { $$ = ast::Literal::build(container, ast::Literal::Binary, $1); }
+ | OCTALLITERAL { $$ = ast::Literal::build(container, ast::Literal::Octal, $1); }
+ | HEXADECIMALLITERAL { $$ = ast::Literal::build(container, ast::Literal::Hex, $1); }
+;
 
 statement:
-   VOID { TODO(); }
+   expression-statement
+ | compound-statement
+ | selection-statement
+ | declaration-statement
+ | return-statement
+ | iteration-statement
+ | inspect-expression
+ // TODO | LET LEFTPAREN parameter-declaration-list statement { $$ = ast::Let::build(container, $2, $3); }
+;
+
+expression-statement:
+   expression SEMICOLON { $$ = ast::ExpressionStatement::build(container, $1); }
+;
+
+compound-statement:
+   LEFTBRACE statement-seq RIGHTBRACE { $$ = ast::CompoundStatement::build(container, $2); }
+ | LEFTBRACE RIGHTBRACE { $$ = ast::CompoundStatement::build(container, $2); }
+;
+
+statement-seq:
+   statement { $$ = ast::StatementSeq::build($1); }
+ | statement-seq statement { $$ = ast::StatementSeq::append($1, $2); }
+;
+
+selection-statement:
+   IF constexpr-opt expression compound-statement { $$ = ast::SelectStatement::build(container, $2, $3, $4); }
+ | IF constexpr-opt expression compound-statement ELSE compound-statement { $$ = ast::SelectStatement::build(container, $2, $3, $4, $5); }
+;
+
+constexpr-opt:
+   CONSTEXPR
+ | %empty { $$ = nullptr; }
+;
+
+declaration-statement:
+   declaration SEMICOLON { $$ = ast::DeclarationStatement::build(container, $1); }
+;
+
+return-statement:
+   RETURN SEMICOLON { $$ = ast::ReturnStatement::build(container, nullptr); }
+ | RETURN expression SEMICOLON { $$ = ast::ReturnStatement::build(container, $2); }
+;
+
+iteration-statement:
+   WHILE logical-or-expression next-clause-opt compound-statement { $$ = ast::WhileStatement::build(container, $2, $3, $4); }
+ | DO compound-statement WHILE logical-or-expression next-clause-opt SEMICOLON { $$ = ast::DoWhileStatement::build(container, $2, $4, $5); }
+ | FOR expression next-clause-opt DO unnamed-declaration SEMICOLON { $$ = ast::ForStatement::build(container, $2, $3, $5); }
+;
+
+next-clause-opt:
+   NEXT assignment-expression { $$ = $2; }
+ | %empty { $$ = nullptr; }
+;
+
+inspect-expression:
+   INSPECT constexpr-opt expression LEFTBRACE alternative-seq-opt RIGHTBRACE { $$ = ast::InspectExpression::build(container, $2, $3, nullptr, $5); }
+ | INSPECT constexpr-opt expression ARROW id-expression LEFTBRACE alternative-seq-opt RIGHTBRACE { $$ = ast::InspectExpression::build(container, $2, $3, $5, $7); }
+;
+
+alternative-seq:
+   alternative { $$ = ast::AlternativeSeq::build($1); }
+ | alternative-seq alternative { $$ = ast::AlternativeSeq::append($1, $2); }
+;
+
+alternative-seq-opt:
+   alternative-seq
+ | %empty { $$ = nullptr; }
+;
+
+alternative:
+   alt-name-opt is-type-constraint ASSIGNMENT statement { $$ = ast::Alternative::build(container, ast::Alterantive::Is, $1, $2, $4); }
+ | alt-name-opt as-type-cast ASSIGNMENT statement { $$ = ast::Alternative::build(container, ast::Alterantive::As, $1, $2, $4); }
+;
+
+alt-name: unqualified-id COLON;
+alt-name-opt:
+   alt-name
+ | %empty { $$ = nullptr; }
+;
+
+is-type-constraint:
+   IS id-expression { $$ = $2; }
+;
+
+as-type-cast:
+   AS id-expression { $$ = $2; }
 ;
 
 %%
@@ -488,14 +594,15 @@ void parser::error(const std::string& s) {
 #define LEXER_KEYWORDS(X) \
    X(Alignas, ALIGNAS) X(Alignof, ALIGNOF) X(Asm, ASM) X(As, AS) X(Auto, AUTO) X(Bool, BOOL) X(Break, BREAK) X(Case, CASE) X(Catch, CATCH) X(Char, CHAR) X(Char16_t, CHAR16_T) \
    X(Char32_t, CHAR32_T) X(Char8_t, CHAR8_T) X(Class, CLASS) X(Co_await, CO_AWAIT) X(Co_return, CO_RETURN) X(Co_yield, CO_YIELD) X(Concept, CONCEPT) X(Const, CONST) \
-   X(Const_cast, CONST_CAST) X(Consteval, CONSTEVAL) X(Constinit, CONSTINIT) X(Continue, CONTINUE) X(Delete, DELETE) X(Decltype, DECLTYPE) X(Default, DEFAULT) X(Double, DOUBLE) \
+   X(Const_cast, CONST_CAST) X(Consteval, CONSTEVAL) X(Constexpr, CONSTEXPR) X(Constinit, CONSTINIT) X(Continue, CONTINUE) X(Delete, DELETE) X(Decltype, DECLTYPE) X(Default, DEFAULT) X(Double, DOUBLE) \
    X(Do, DO) X(Dynamic_cast, DYNAMIC_CAST) X(Else, ELSE) X(Enum, ENUM) X(Explicit, EXPLICIT) X(Export, EXPORT) X(Extern, EXTERN) X(False, FALSE) X(Float, FLOAT) X(For, FOR) \
-   X(Friend, FRIEND) X(Goto, GOTO) X(If, IF) X(Import, IMPORT) X(Inline, INLINE) X(Int, INT) X(Is, IS) X(Long, LONG) X(Module, MODULE) X(Mutable, MUTABLE) X(Namespace, NAMESPACE) \
+   X(Friend, FRIEND) X(Goto, GOTO) X(If, IF) X(Import, IMPORT) X(Inline, INLINE) X(Inspect, INSPECT) X(Int, INT) X(Is, IS) X(Long, LONG) X(Module, MODULE) X(Mutable, MUTABLE) X(Namespace, NAMESPACE) \
    X(New, NEW) X(Noexcept, NOEXCEPT) X(Nullptr, NULLPTR) X(Operator, OPERATOR) X(Private, PRIVATE) X(Protected, PROTECTED) X(Public, PUBLIC) X(Register, REGISTER) \
    X(Reinterpret_cast, REINTERPRET_CAST) X(Requires, REQUIRES) X(Return, RETURN) X(Short, SHORT) X(Signed, SIGNED) X(Sizeof, SIZEOF) X(Static, STATIC) X(Static_assert, STATIC_ASSERT) \
    X(Static_cast, STATIC_CAST) X(Struct, STRUCT) X(Switch, SWITCH) X(Template, TEMPLATE) X(This, THIS) X(Thread_local, THREAD_LOCAL) X(Throws, THROWS) X(Throw, THROW) X(True, TRUE) \
    X(Try, TRY) X(Typedef, TYPEDEF) X(Typeid, TYPEID) X(Typename, TYPENAME) X(Union, UNION) X(Unsigned, UNSIGNED) X(Using, USING) X(Virtual, VIRTUAL) X(Void, VOID) \
-   X(Volatile, VOLATILE) X(Wchar_t, WCHAR_T) X(While, WHILE)
+   X(Volatile, VOLATILE) X(Wchar_t, WCHAR_T) X(While, WHILE) \
+   X(Pre, PRE) X(Post, POST) X(Assert, ASSERT) X(In, IN) X(Copy, COPY) X(Inout, INOUT) X(Out, OUT) X(Move, MOVE) X(Forward, FORWARD) X(Let, LET) X(Next, NEXT)
 
 // The mapping table from Lexer tokens to bison tokens
 static constexpr cpp2exp::parser::parser::token::yytokentype tokenTable[]={

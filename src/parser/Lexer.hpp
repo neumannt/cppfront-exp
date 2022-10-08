@@ -108,6 +108,7 @@ class Lexer {
         Const,
         Const_cast,
         Consteval,
+        Constexpr,
         Constinit,
         Continue,
         Delete,
@@ -129,6 +130,7 @@ class Lexer {
         If,
         Import,
         Inline,
+        Inspect,
         Int,
         Is,
         Long,
@@ -181,7 +183,9 @@ class Lexer {
         Inout,
         Out,
         Move,
-        Forward
+        Forward,
+        Let,
+        Next
     };
 
     private:
