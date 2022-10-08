@@ -205,8 +205,8 @@ parameter-declaration-list:
 ;
 
 parameter-declaration-seq:
-   parameter-declaration { $$ = ast::ParameterDeclarationSeq::build($1); }
- | parameter-declaration-seq COMMA parameter-declaration { $$ = ast::ParameterDeclarationSeq::append($1, $2); }
+   parameter-declaration { $$ = ast::ParameterDeclarationSeq::build(container, $1); }
+ | parameter-declaration-seq COMMA parameter-declaration { $$ = ast::ParameterDeclarationSeq::append(container, $1, $2); }
 ;
 
 parameter-declaration-seq-opt:
@@ -216,7 +216,7 @@ parameter-declaration-seq-opt:
 
 parameter-declaration:
    parameter-direction declaration { $$ = ast::ParameterDeclaration::build(container, $1, $2); }
- | declaration { $$ = ast::ParameterDeclaration::build(container, nullptr, 1); }
+ | declaration { $$ = ast::ParameterDeclaration::build(container, nullptr, $1); }
 ;
 
 parameter-direction:
@@ -266,8 +266,8 @@ contract-seq-opt:
 
 
 unnamed-declaration:
-   COLON function-type ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnanemdDeclaration::Function, $2, $4); }
- | COLON id-expression-opt ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnanmedDeclaration::Value, $2, $4); }
+   COLON function-type ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Function, $2, $4); }
+ | COLON id-expression-opt ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
  | COLON id-expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
 ;
 
