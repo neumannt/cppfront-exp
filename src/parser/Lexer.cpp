@@ -82,6 +82,48 @@ void Lexer::reset(string_view newInput)
 //---------------------------------------------------------------------------
 static constexpr unsigned tabWidth = 8;
 //---------------------------------------------------------------------------
+bool Lexer::checkPostfix() const
+// Check if we are in a postfix situation
+{
+    unsigned index = loc.byteOfs, limit = input.length();
+    // Skip to the next non-whitespace character
+    while (index < limit) {
+        char c = input[index++];
+
+        // Whitespace
+        if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n') || (c == '\f') || (c == '\v')) continue;
+
+        // Skip comment
+        if ((c == '/') && (index < limit)) {
+            char c2 = input[index];
+            if (c2 == '/') {
+                ++index;
+                while ((index < limit) && (input[index] != '\n') && (input[index] != '\r')) ++index;
+                continue;
+            }
+            if (c2 == '*') {
+                ++index;
+                while (index < limit) {
+                    if ((index + 1 < limit) && (input[index] == '*') && (input[index + 1] == '/')) {
+                        index += 2;
+                        break;
+                    }
+                    ++index;
+                }
+                continue;
+            }
+        }
+
+        if ((c == '.') && (index < limit)) {
+            char c2 = input[index];
+            if (((c2 >= '0') && (c2 <= '9')) || (c2 == '\'')) return false;
+        }
+        if (((c >= '0') && (c <= '9')) || ((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')) || (c == '_') || (c == '\'') || (c == '"')) return false;
+        return true;
+    }
+    return true;
+}
+//---------------------------------------------------------------------------
 void Lexer::handleSingleLineComment()
 // Handle a comment starting with //
 {
@@ -414,6 +456,7 @@ Lexer::Token Lexer::next()
 // Read the next token
 {
     unsigned limit = input.length();
+    unsigned lastTokenStart = loc.byteOfs;
 
     auto multiByte = [&] [[nodiscard]] (unsigned skip, Token tok) {
         consume(skip);
@@ -480,9 +523,12 @@ Lexer::Token Lexer::next()
             case '&':
                 if (c2 == '&') return multiByte(1 + (c3 == '='), (c3 == '=') ? Token::LogicalAndEq : Token::LogicalAnd);
                 if (c2 == '=') return multiByte(1, Token::AmpersandEq);
+                if ((loc.byteOfs == lastTokenStart + 1) && lastTokenStart && checkPostfix()) return Token::PostfixAmpersand;
+
                 return Token::Ampersand;
             case '*':
                 if (c2 == '=') return multiByte(1, Token::MultiplyEq);
+                if ((loc.byteOfs == lastTokenStart + 1) && lastTokenStart && checkPostfix()) return Token::PostfixMultiply;
                 return Token::Multiply;
             case '%':
                 if (c2 == '=') return multiByte(1, Token::ModuloEq);

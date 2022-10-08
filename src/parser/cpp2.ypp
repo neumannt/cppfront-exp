@@ -68,6 +68,8 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token PLUS "'+'"
 %token PLUSEQ "'+='"
 %token PLUSPLUS "'++'"
+%token POSTFIXAMPERSAND
+%token POSTFIXMULTIPLY
 %token QUESTIONMARK "'?'"
 %token RIGHTBRACE "'}'"
 %token RIGHTBRACKET "']'"
@@ -444,14 +446,16 @@ prefix-expression:
 
 prefix-operator:
    NOT
+ | PLUS
+ | MINUS
 ;
 
 postfix-expression:
    primary-expression
  | postfix-expression PLUSPLUS { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression MINUSMINUS { $$ = ast::PostfixExpression::build(container, $1, $2); }
- // TODO | postfix-expression MULTIPLY { $$ = ast::PostfixExpression::build(container, $1, $2); }
- // TODO | postfix-expression AMPERSAND { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression POSTFIXMULTIPLY { $$ = ast::PostfixExpression::build(container, $1, $2); }
+ | postfix-expression POSTFIXAMPERSAND { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression TILDE { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression DOLLAR { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression LEFTBRACKET expression-list RIGHTBRACKET { $$ = ast::BracketExpression::build(container, $1, $2); }
@@ -586,7 +590,8 @@ void parser::error(const std::string& s) {
    X(LeftBrace, LEFTBRACE) X(LeftBracket, LEFTBRACKET) X(LeftParen, LEFTPAREN) X(LeftShift, LEFTSHIFT) X(LeftShiftEq, LEFTSHIFTEQ) X(Less, LESS) X(LessEq, LESSEQ) \
    X(LogicalAnd, LOGICALAND) X(LogicalAndEq, LOGICALANDEQ) X(LogicalOr, LOGICALOR) X(LogicalOrEq, LOGICALOREQ) X(Minus, MINUS) X(MinusEq, MINUSEQ) X(MinusMinus, MINUSMINUS) \
    X(Modulo, MODULO) X(ModuloEq, MODULOEQ) X(Multiply, MULTIPLY) X(MultiplyEq, MULTIPLYEQ) X(Not, NOT) X(NotEqualComparison, NOTEQUALCOMPARISON) X(OctalLiteral, OCTALLITERAL) \
-   X(Pipe, PIPE) X(PipeEq, PIPEEQ) X(Plus, PLUS) X(PlusEq, PLUSEQ) X(PlusPlus, PLUSPLUS) X(QuestionMark, QUESTIONMARK) X(RightBrace, RIGHTBRACE) X(RightBracket, RIGHTBRACKET) \
+   X(Pipe, PIPE) X(PipeEq, PIPEEQ) X(Plus, PLUS) X(PlusEq, PLUSEQ) X(PlusPlus, PLUSPLUS) X(PostfixAmpersand, POSTFIXAMPERSAND) X(PostfixMultiply, POSTFIXMULTIPLY) \
+   X(QuestionMark, QUESTIONMARK) X(RightBrace, RIGHTBRACE) X(RightBracket, RIGHTBRACKET) \
    X(RightParen, RIGHTPAREN) X(RightShift, RIGHTSHIFT) X(RightShiftEq, RIGHTSHIFTEQ) X(Scope, SCOPE) X(Semicolon, SEMICOLON) X(Slash, SLASH) X(SlashEq, SLASHEQ) \
    X(Spaceship, SPACESHIP) X(StringLiteral, STRINGLITERAL) X(Tilde, TILDE) X(TildeEq, TILDEEQ)
 

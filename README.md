@@ -27,6 +27,3 @@ map<int,vector<string>> -> map![int,vector![string]]
 
 That solves the ambiguity problem, at the cost of a new syntax for templates.
 
-### Postfix operators
-
-The postfix operator ```*``` and ```&``` create an ambiguity in the grammar. For now they are simply disabled, in the long run we might re-enable them again using lexer magic.

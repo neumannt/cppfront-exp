@@ -69,6 +69,8 @@ class Lexer {
         Plus,
         PlusEq,
         PlusPlus,
+        PostfixMultiply,
+        PostfixAmpersand,
         QuestionMark,
         RightBrace,
         RightBracket,
@@ -210,6 +212,8 @@ class Lexer {
         loc.column += c;
     }
 
+    /// Check if we are in a postfix situation
+    bool checkPostfix() const;
     /// Store an error message
     void addError(SourceLocation loc, std::string text);
     /// Store a comment
