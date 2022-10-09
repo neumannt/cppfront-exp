@@ -16,7 +16,7 @@ grammar will hopefully be unambiguous, too. The deviations are discussed below.
 ### Template syntax
 
 By far the most serious deviation is on the syntax for template expressions and types. The problem there is that C++ (and implicitly cppfront)
-is contact sensitive, it is impossible to parse ```{ a<b,c>d; }``` without knowing wheter ```a``` is a template or not. There is no easy solution to this problem
+is contact sensitive, it is impossible to parse ```foo(a<b,c>(3))``` without knowing wheter ```a``` is a template or not. There is no easy solution to this problem
 if we want parse without type analysis. One option would be to forbid the comma operator and use an LR(inf) grammar, but that is also unattractive.
 For now, we solve this problem by using ```a![T]``` as template syntax, i.e.:
 
