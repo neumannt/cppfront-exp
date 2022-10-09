@@ -44,7 +44,7 @@ const AST* AST::dynCastImpl(Type requiredType, const AST* ast)
     if ((!ast) || (ast->type != requiredType)) {
         // Debug output
         std::cerr << "internal error, AST type confusion. Got ";
-        if (ast)
+        if (!ast)
             std::cerr << "nullptr";
         else
             std::cerr << static_cast<unsigned>(ast->type);

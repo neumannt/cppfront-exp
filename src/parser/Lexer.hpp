@@ -48,6 +48,7 @@ class Lexer {
         LeftParen,
         LeftShift,
         LeftShiftEq,
+        LeftTemplateBracket,
         Less,
         LessEq,
         LogicalAnd,

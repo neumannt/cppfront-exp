@@ -47,6 +47,7 @@ static int yylex(cpp2exp::parser::parser::semantic_type* yylval, cpp2exp::ASTCon
 %token LEFTPAREN "'('"
 %token LEFTSHIFT "'<<'"
 %token LEFTSHIFTEQ "'<<='"
+%token LEFTTEMPLATEBRACKET "'!['"
 %token LESS "'<'"
 %token LESSEQ "'<='"
 %token LOGICALAND "'&&'"
@@ -203,7 +204,7 @@ identifier:
 string-literal: STRINGLITERAL;
 
 parameter-declaration-list:
-   LEFTPAREN parameter-declaration-seq-opt RIGHTPAREN { $$ = ast::ParameterDeclarationList::build(container, $1); }
+   LEFTPAREN parameter-declaration-seq-opt RIGHTPAREN { $$ = ast::ParameterDeclarationList::build(container, $2); }
 ;
 
 parameter-declaration-seq:
@@ -217,8 +218,8 @@ parameter-declaration-seq-opt:
 ;
 
 parameter-declaration:
-   parameter-direction declaration { $$ = ast::ParameterDeclaration::build(container, $1, $2); }
- | declaration { $$ = ast::ParameterDeclaration::build(container, nullptr, $1); }
+   parameter-direction declaration-param { $$ = ast::ParameterDeclaration::build(container, $1, $2); }
+ | declaration-param { $$ = ast::ParameterDeclaration::build(container, nullptr, $1); }
 ;
 
 parameter-direction:
@@ -240,8 +241,8 @@ throws-specifier-opt:
 ;
 
 return-list-opt:
-   id-expression { $$ = ast::ReturnList::build(container, ast::ReturnList::Single, $1); }
- | parameter-declaration-list { $$ = ast::ReturnList::build(container, ast::ReturnList::Multiple, $1); }
+   ARROW id-expression { $$ = ast::ReturnList::build(container, ast::ReturnList::Single, $2); }
+ | ARROW parameter-declaration-list { $$ = ast::ReturnList::build(container, ast::ReturnList::Multiple, $2); }
  | %empty { $$ = nullptr; }
 ;
 
@@ -270,21 +271,23 @@ contract-seq-opt:
 unnamed-declaration:
    COLON function-type ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Function, $2, $4); }
  | COLON id-expression-opt ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
+ | COLON id-expression SEMICOLON { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
+;
+unnamed-declaration-param:
+   COLON function-type ASSIGNMENT expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Function, $2, $4); }
+ | COLON id-expression-opt ASSIGNMENT expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
  | COLON id-expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
 ;
 
 unqualified-id:
-   const-opt identifier { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Normal, $1, $2); }
- | const-opt template-id { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Template, $1, $2); }
-;
-
-const-opt:
-   CONST
- | %empty { $$ = nullptr; }
+   identifier { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Normal, nullptr, $1); }
+ | CONST identifier { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Normal, $1, $2); }
+ | template-id { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Template, nullptr, $1); }
+ | CONST template-id { $$ = ast::UnqualifiedId::build(container, ast::UnqualifiedId::Template, $1, $2); }
 ;
 
 template-id:
-   identifier NOT LEFTBRACKET template-argument-list-opt RIGHTBRACKET { $$ = ast::TemplateId::build(container, $1, $3); }
+   identifier LEFTTEMPLATEBRACKET template-argument-list-opt RIGHTBRACKET { $$ = ast::TemplateId::build(container, $1, $3); }
 ;
 
 template-argument-list:
@@ -323,12 +326,45 @@ member-name-specifier:
 id-expression:
    unqualified-id
  | qualified-id
+ | fundamental-type
 ;
 id-expression-after-dot:
    unqualified-id
  | qualified-id-after-dot
+ | fundamental-type
 ;
 
+fundamental-type:
+   VOID { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Void); }
+ | CHAR { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Char); }
+ | SIGNED CHAR { $$ = ast::FundamentalType::build(container, ast::FundamentalType::SChar); }
+ | UNSIGNED CHAR { $$ = ast::FundamentalType::build(container, ast::FundamentalType::UChar); }
+ | CHAR8_T { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Char8); }
+ | CHAR16_T { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Char16); }
+ | CHAR32_T { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Char32); }
+ | WCHAR_T { $$ = ast::FundamentalType::build(container, ast::FundamentalType::WChar); }
+ | INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Int); }
+ | SIGNED INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Int); }
+ | SIGNED { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Int); }
+ | UNSIGNED INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::UInt); }
+ | UNSIGNED { $$ = ast::FundamentalType::build(container, ast::FundamentalType::UInt); }
+ | LONG INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Long); }
+ | LONG { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Long); }
+ | UNSIGNED LONG INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::ULong); }
+ | UNSIGNED LONG { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Long); }
+ | LONG LONG INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::LongLong); }
+ | LONG LONG { $$ = ast::FundamentalType::build(container, ast::FundamentalType::LongLong); }
+ | UNSIGNED LONG LONG INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::ULongLong); }
+ | UNSIGNED LONG LONG { $$ = ast::FundamentalType::build(container, ast::FundamentalType::LongLong); }
+ | SHORT INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Short); }
+ | SHORT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Short); }
+ | UNSIGNED SHORT INT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::UShort); }
+ | UNSIGNED SHORT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::UShort); }
+ | BOOL { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Bool); }
+ | FLOAT { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Float); }
+ | DOUBLE { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Double); }
+ | LONG DOUBLE { $$ = ast::FundamentalType::build(container, ast::FundamentalType::LongDouble); }
+;
 
 id-expression-opt:
    id-expression
@@ -338,10 +374,13 @@ id-expression-opt:
 declaration:
    identifier unnamed-declaration { $$ = ast::Declaration::build(container, $1, $2); }
 ;
+declaration-param:
+   identifier unnamed-declaration-param { $$ = ast::Declaration::build(container, $1, $2); }
+;
 
 declaration-seq:
-   declaration SEMICOLON { $$ = ast::DeclarationSeq::build(container, $1); }
- | declaration-seq declaration SEMICOLON { $$ = ast::DeclarationSeq::append(container, $1, $2); }
+   declaration { $$ = ast::DeclarationSeq::build(container, $1); }
+ | declaration-seq declaration { $$ = ast::DeclarationSeq::append(container, $1, $2); }
 ;
 
 expression:
@@ -459,7 +498,7 @@ postfix-expression:
  | postfix-expression TILDE { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression DOLLAR { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression LEFTBRACKET expression-list RIGHTBRACKET { $$ = ast::BracketExpression::build(container, $1, $2); }
- | postfix-expression LEFTPAREN expression-list RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, $2); }
+ | postfix-expression LEFTPAREN expression-list RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, $3); }
  | postfix-expression LEFTPAREN RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, nullptr); }
  | postfix-expression DOT id-expression-after-dot { $$ = ast::DotExpression::build(container, $1, $2); }
 ;
@@ -467,14 +506,14 @@ postfix-expression:
 primary-expression:
    literal
  | LEFTPAREN expression-list RIGHTPAREN { $$ = $2; }
-// TODO | id-expression-after-dot
- | unnamed-declaration SEMICOLON
+ | id-expression-after-dot
+ | unnamed-declaration
 // TODO | inspect-expression
 ;
 
 literal:
-   identifier { $$ = ast::Literal::build(container, ast::Literal::Identifier, $1); }
- | DECIMALLITERAL { $$ = ast::Literal::build(container, ast::Literal::Decimal, $1); }
+//   identifier { $$ = ast::Literal::build(container, ast::Literal::Identifier, $1); } | // already covered by id-expression in primary-expression
+   DECIMALLITERAL { $$ = ast::Literal::build(container, ast::Literal::Decimal, $1); }
  | FLOATLITERAL { $$ = ast::Literal::build(container, ast::Literal::Float, $1); }
  | STRINGLITERAL { $$ = ast::Literal::build(container, ast::Literal::String, $1); }
  | CHARACTERLITERAL { $$ = ast::Literal::build(container, ast::Literal::Char, $1); }
@@ -519,7 +558,7 @@ constexpr-opt:
 ;
 
 declaration-statement:
-   declaration SEMICOLON { $$ = ast::DeclarationStatement::build(container, $1); }
+   declaration { $$ = ast::DeclarationStatement::build(container, $1); }
 ;
 
 return-statement:
@@ -587,7 +626,7 @@ void parser::error(const std::string& s) {
    X(Eof, EndOfFile) X(Error, Error) X(Ampersand, AMPERSAND) X(AmpersandEq, AMPERSANDEQ) X(Arrow, ARROW) X(Assignment, ASSIGNMENT) X(BinaryLiteral, BINARYLITERAL) X(Caret, CARET) \
    X(CaretEq, CARETEQ) X(CharacterLiteral, CHARACTERLITERAL) X(Colon, COLON) X(Comma, COMMA) X(DecimalLiteral, DECIMALLITERAL) X(Dollar, DOLLAR) X(Dot, DOT) X(Ellipsis, ELLIPSIS) \
    X(EqualComparison, EQUALCOMPARISON) X(FloatLiteral, FLOATLITERAL) X(Greater, GREATER) X(GreaterEq, GREATEREQ) X(HexadecimalLiteral, HEXADECIMALLITERAL) X(Identifier, IDENTIFIER) \
-   X(LeftBrace, LEFTBRACE) X(LeftBracket, LEFTBRACKET) X(LeftParen, LEFTPAREN) X(LeftShift, LEFTSHIFT) X(LeftShiftEq, LEFTSHIFTEQ) X(Less, LESS) X(LessEq, LESSEQ) \
+   X(LeftBrace, LEFTBRACE) X(LeftBracket, LEFTBRACKET) X(LeftParen, LEFTPAREN) X(LeftShift, LEFTSHIFT) X(LeftShiftEq, LEFTSHIFTEQ) X(LeftTemplateBracket, LEFTTEMPLATEBRACKET) X(Less, LESS) X(LessEq, LESSEQ) \
    X(LogicalAnd, LOGICALAND) X(LogicalAndEq, LOGICALANDEQ) X(LogicalOr, LOGICALOR) X(LogicalOrEq, LOGICALOREQ) X(Minus, MINUS) X(MinusEq, MINUSEQ) X(MinusMinus, MINUSMINUS) \
    X(Modulo, MODULO) X(ModuloEq, MODULOEQ) X(Multiply, MULTIPLY) X(MultiplyEq, MULTIPLYEQ) X(Not, NOT) X(NotEqualComparison, NOTEQUALCOMPARISON) X(OctalLiteral, OCTALLITERAL) \
    X(Pipe, PIPE) X(PipeEq, PIPEEQ) X(Plus, PLUS) X(PlusEq, PLUSEQ) X(PlusPlus, PLUSPLUS) X(PostfixAmpersand, POSTFIXAMPERSAND) X(PostfixMultiply, POSTFIXMULTIPLY) \

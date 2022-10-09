@@ -515,6 +515,7 @@ Lexer::Token Lexer::next()
             case '-':
                 if (c2 == '-') return multiByte(1, Token::MinusMinus);
                 if (c2 == '=') return multiByte(1, Token::MinusEq);
+                if (c2 == '>') return multiByte(1, Token::Arrow);
                 return Token::Minus;
             case '|':
                 if (c2 == '|') return multiByte(1 + (c3 == '='), (c3 == '=') ? Token::LogicalOrEq : Token::LogicalOr);
@@ -543,6 +544,7 @@ Lexer::Token Lexer::next()
                 if (c2 == '=') return multiByte(1, Token::EqualComparison);
                 return Token::Assignment;
             case '!':
+                if (c2 == '[') return multiByte(1, Token::LeftTemplateBracket);
                 if (c2 == '=') return multiByte(1, Token::NotEqualComparison);
                 return Token::Not;
             case '.':
@@ -554,7 +556,7 @@ Lexer::Token Lexer::next()
                 }
                 return Token::Dot;
             case ':':
-                if (c2 == ':') return multiByte(2, Token::Scope);
+                if (c2 == ':') return multiByte(1, Token::Scope);
                 return Token::Colon;
             case '{': return Token::LeftBrace;
             case '}': return Token::RightBrace;

@@ -52,6 +52,7 @@ class AST {
         WhileStatement,
         DoWhileStatement,
         ForStatement,
+        FundamentalType,
         TranslationUnit
     };
 
@@ -230,14 +231,14 @@ class ParameterDeclarationSeq : public ListHelper<ParameterDeclarationSeq, Param
 /// Container for a parameter declaration list
 class ParameterDeclarationList : public ASTNode<ParameterDeclarationList, AST::Type::ParameterDeclarationList> {
     public:
-    /// The list itself
+    /// The list itself (if any)
     const ParameterDeclarationSeq* list;
 
     /// Constructor
     ParameterDeclarationList(const ParameterDeclarationSeq* list) : list(list) {}
 
     /// Build
-    static ParameterDeclarationList* build(ASTContainer& c, const AST* list) { return new (c.allocate<ParameterDeclarationList>()) ParameterDeclarationList(ParameterDeclarationSeq::dynCast(list)); }
+    static ParameterDeclarationList* build(ASTContainer& c, const AST* list) { return new (c.allocate<ParameterDeclarationList>()) ParameterDeclarationList(ParameterDeclarationSeq::dynCastOrNull(list)); }
 };
 //---------------------------------------------------------------------------
 /// Return list
@@ -497,7 +498,7 @@ class ParenExpression : public ASTNode<ParenExpression, AST::Type::ParenExpressi
     ParenExpression(const AST* base, const ExpressionList* arguments) : base(base), arguments(arguments) {}
 
     /// Build
-    static ParenExpression* build(ASTContainer& c, const AST* base, const AST* arguments) { return new (c.allocate<ParenExpression>()) ParenExpression(base, ExpressionList::dynCast(arguments)); }
+    static ParenExpression* build(ASTContainer& c, const AST* base, const AST* arguments) { return new (c.allocate<ParenExpression>()) ParenExpression(base, ExpressionList::dynCastOrNull(arguments)); }
 };
 //---------------------------------------------------------------------------
 /// A dot expression
@@ -713,6 +714,42 @@ class ForStatement : public ASTNode<ForStatement, AST::Type::ForStatement> {
 
     /// Build
     static ForStatement* build(ASTContainer& c, const AST* value, const AST* next, const AST* body) { return new (c.allocate<ForStatement>()) ForStatement(value, next, body); }
+};
+//---------------------------------------------------------------------------
+/// A fundamental type
+class FundamentalType : public ASTNode<FundamentalType, AST::Type::FundamentalType> {
+    public:
+    /// The types
+    enum SubType {
+        Void,
+        Char,
+        SChar,
+        UChar,
+        Char8,
+        Char16,
+        Char32,
+        WChar,
+        Int,
+        UInt,
+        Long,
+        ULong,
+        LongLong,
+        ULongLong,
+        Bool,
+        Short,
+        UShort,
+        Float,
+        Double,
+        LongDouble
+    };
+    /// The type
+    SubType subType;
+
+    /// Constructor
+    FundamentalType(SubType subType) : subType(subType) {}
+
+    /// Build
+    static FundamentalType* build(ASTContainer& c, SubType subType) { return new (c.allocate<FundamentalType>()) FundamentalType(subType); }
 };
 //---------------------------------------------------------------------------
 /// A translation unit
