@@ -270,13 +270,13 @@ contract-seq-opt:
 
 unnamed-declaration:
    COLON function-type ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Function, $2, $4); }
- | COLON id-expression-opt ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
- | COLON id-expression SEMICOLON { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
+ | COLON type-id-expression-opt ASSIGNMENT statement { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
+ | COLON type-id-expression SEMICOLON { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
 ;
 unnamed-declaration-param:
    COLON function-type ASSIGNMENT expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Function, $2, $4); }
- | COLON id-expression-opt ASSIGNMENT expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
- | COLON id-expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
+ | COLON type-id-expression-opt ASSIGNMENT expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, $4); }
+ | COLON type-id-expression { $$ = ast::UnnamedDeclaration::build(container, ast::UnnamedDeclaration::Value, $2, nullptr); }
 ;
 
 unqualified-id:
@@ -333,6 +333,11 @@ id-expression-after-dot:
  | qualified-id-after-dot
  | fundamental-type
 ;
+type-id-expression:
+   id-expression
+ | MULTIPLY type-id-expression { $$ = ast::TypeModifier::build(container, ast::TypeModifier::Pointer, $2); }
+ | POSTFIXMULTIPLY type-id-expression { $$ = ast::TypeModifier::build(container, ast::TypeModifier::Pointer, $2); }
+;
 
 fundamental-type:
    VOID { $$ = ast::FundamentalType::build(container, ast::FundamentalType::Void); }
@@ -368,6 +373,10 @@ fundamental-type:
 
 id-expression-opt:
    id-expression
+ | %empty { $$ = nullptr; }
+;
+type-id-expression-opt:
+   type-id-expression
  | %empty { $$ = nullptr; }
 ;
 
@@ -497,7 +506,7 @@ postfix-expression:
  | postfix-expression POSTFIXAMPERSAND { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression TILDE { $$ = ast::PostfixExpression::build(container, $1, $2); }
  | postfix-expression DOLLAR { $$ = ast::PostfixExpression::build(container, $1, $2); }
- | postfix-expression LEFTBRACKET expression-list RIGHTBRACKET { $$ = ast::BracketExpression::build(container, $1, $2); }
+ | postfix-expression LEFTBRACKET expression-list RIGHTBRACKET { $$ = ast::BracketExpression::build(container, $1, $3); }
  | postfix-expression LEFTPAREN expression-list RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, $3); }
  | postfix-expression LEFTPAREN RIGHTPAREN { $$ = ast::ParenExpression::build(container, $1, nullptr); }
  | postfix-expression DOT id-expression-after-dot { $$ = ast::DotExpression::build(container, $1, $2); }

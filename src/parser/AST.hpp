@@ -53,6 +53,7 @@ class AST {
         DoWhileStatement,
         ForStatement,
         FundamentalType,
+        TypeModifier,
         TranslationUnit
     };
 
@@ -750,6 +751,25 @@ class FundamentalType : public ASTNode<FundamentalType, AST::Type::FundamentalTy
 
     /// Build
     static FundamentalType* build(ASTContainer& c, SubType subType) { return new (c.allocate<FundamentalType>()) FundamentalType(subType); }
+};
+//---------------------------------------------------------------------------
+/// A type modifier
+class TypeModifier : public ASTNode<TypeModifier, AST::Type::TypeModifier> {
+    public:
+    /// The types
+    enum SubType {
+        Pointer
+    };
+    /// The type
+    SubType subType;
+    /// The original type
+    const AST* type;
+
+    /// Constructor
+    TypeModifier(SubType subType, const AST* type) : subType(subType), type(type) {}
+
+    /// Build
+    static TypeModifier* build(ASTContainer& c, SubType subType, const AST* type) { return new (c.allocate<TypeModifier>()) TypeModifier(subType, type); }
 };
 //---------------------------------------------------------------------------
 /// A translation unit
