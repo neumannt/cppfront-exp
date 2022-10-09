@@ -27,6 +27,31 @@ class AST {
         ReturnList,
         FunctionType,
         UnqualifiedId,
+        TemplateArgument,
+        TemplateArgumentList,
+        TemplateId,
+        QualifiedId,
+        ExpressionList,
+        AssignmentExpression,
+        BinaryExpression,
+        PrefixExpression,
+        PostfixExpression,
+        BracketExpression,
+        ParenExpression,
+        DotExpression,
+        Alternative,
+        AlternativeSeq,
+        InspectExpression,
+        Literal,
+        ExpressionStatement,
+        StatementSeq,
+        CompoundStatement,
+        SelectStatement,
+        DeclarationStatement,
+        ReturnStatement,
+        WhileStatement,
+        DoWhileStatement,
+        ForStatement,
         TranslationUnit
     };
 
@@ -169,7 +194,7 @@ class ListHelper : public ASTNode<T, typeId> {
     /// Append to list
     static T* append(ASTContainer& c, const AST* l, const AST* e) {
         auto tl = const_cast<T*>(T::dynCast(l));
-        auto newEntry = build(c, e);
+        auto newEntry = T::build(c, e);
         if (tl->last)
             tl->last->next = newEntry;
         else
@@ -295,6 +320,399 @@ class UnqualifiedId : public ASTNode<UnqualifiedId, AST::Type::UnqualifiedId> {
 
     /// Build
     static UnqualifiedId* build(ASTContainer& c, SubType subType, const AST* constFlag, const AST* id) { return new (c.allocate<UnqualifiedId>()) UnqualifiedId(subType, Token::dynCastOrNull(constFlag), id); }
+};
+//---------------------------------------------------------------------------
+/// A template argument
+class TemplateArgument : public ASTNode<TemplateArgument, AST::Type::TemplateArgument> {
+    public:
+    /// Subtypes
+    enum SubType { Expression };
+
+    /// The subtype
+    SubType subType;
+    /// The expression
+    const AST* expression;
+
+    /// Constructor
+    TemplateArgument(SubType subType, const AST* expression) : subType(subType), expression(expression) {}
+
+    /// Build
+    static TemplateArgument* build(ASTContainer& c, SubType subType, const AST* expression) { return new (c.allocate<TemplateArgument>()) TemplateArgument(subType, expression); }
+};
+//---------------------------------------------------------------------------
+/// A list of template arguments
+class TemplateArgumentList : public ListHelper<TemplateArgumentList, TemplateArgument, AST::Type::TemplateArgumentList> {
+};
+//---------------------------------------------------------------------------
+/// An template id
+class TemplateId : public ASTNode<TemplateId, AST::Type::TemplateId> {
+    public:
+    /// The identifier
+    const Token* identifier;
+    /// The arguments (if any)
+    const TemplateArgumentList* arguments;
+
+    /// Constructor
+    TemplateId(const Token* identifier, const TemplateArgumentList* arguments) : identifier(identifier), arguments(arguments) {}
+
+    /// Build
+    static TemplateId* build(ASTContainer& c, const AST* identifier, const AST* arguments) { return new (c.allocate<TemplateId>()) TemplateId(Token::dynCast(identifier), TemplateArgumentList::dynCastOrNull(arguments)); }
+};
+//---------------------------------------------------------------------------
+/// A qualified id
+class QualifiedId : public ASTNode<QualifiedId, AST::Type::QualifiedId> {
+    public:
+    /// Subtypes
+    enum SubType : bool { Nested,
+                          Member };
+    /// The subtype
+    SubType subType;
+    /// The scope
+    const AST* scope;
+    /// The id
+    const UnqualifiedId* id;
+
+    /// Constructor
+    QualifiedId(SubType subType, const AST* scope, const UnqualifiedId* id) : subType(subType), scope(scope), id(id) {}
+
+    /// Build
+    static QualifiedId* build(ASTContainer& c, SubType subType, const AST* scope, const AST* id) { return new (c.allocate<QualifiedId>()) QualifiedId(subType, scope, UnqualifiedId::dynCast(id)); }
+};
+//---------------------------------------------------------------------------
+/// A list of expressions
+class ExpressionList : public ListHelper<ExpressionList, AST, AST::Type::ExpressionList> {
+    public:
+    /// Build
+    static ExpressionList* build(ASTContainer& c, const AST* e) { return new (c.allocate<ExpressionList>()) ExpressionList(e); }
+};
+//---------------------------------------------------------------------------
+/// An assignment expression
+class AssignmentExpression : public ASTNode<AssignmentExpression, AST::Type::AssignmentExpression> {
+    public:
+    /// The target
+    const AST* target;
+    /// The operator
+    const Token* op;
+    /// The value
+    const AST* value;
+
+    /// Constructor
+    AssignmentExpression(const AST* target, const Token* op, const AST* value) : target(target), op(op), value(value) {}
+
+    /// Build
+    static AssignmentExpression* build(ASTContainer& c, const AST* target, const AST* op, const AST* value) { return new (c.allocate<AssignmentExpression>()) AssignmentExpression(target, Token::dynCast(op), value); }
+};
+//---------------------------------------------------------------------------
+/// A binary expression
+class BinaryExpression : public ASTNode<BinaryExpression, AST::Type::BinaryExpression> {
+    public:
+    /// The subtype
+    enum SubType {
+        LogicalAnd,
+        LogicalOr,
+        BitAnd,
+        BitOr,
+        BitXor,
+        Equal,
+        NotEqual,
+        Less,
+        LessEq,
+        Greater,
+        GreaterEq,
+        Spaceship,
+        LeftShift,
+        RightShift,
+        Plus,
+        Minus,
+        Mul,
+        Div,
+        Modulo
+    };
+    /// The subtype
+    SubType subType;
+    /// The arguments
+    const AST *left, *right;
+
+    /// Constructor
+    BinaryExpression(SubType subType, const AST* left, const AST* right) : subType(subType), left(left), right(right) {}
+
+    /// Build
+    static BinaryExpression* build(ASTContainer& c, SubType subType, const AST* left, const AST* right) { return new (c.allocate<BinaryExpression>()) BinaryExpression(subType, left, right); }
+};
+//---------------------------------------------------------------------------
+/// A prefix expression
+class PrefixExpression : public ASTNode<PrefixExpression, AST::Type::PrefixExpression> {
+    public:
+    /// The operator
+    const Token* op;
+    /// The expression
+    const AST* expression;
+
+    /// Constructor
+    PrefixExpression(const Token* op, const AST* expression) : op(op), expression(expression) {}
+
+    /// Build
+    static PrefixExpression* build(ASTContainer& c, const AST* op, const AST* expression) { return new (c.allocate<PrefixExpression>()) PrefixExpression(Token::dynCast(op), expression); }
+};
+//---------------------------------------------------------------------------
+/// A postfix expression
+class PostfixExpression : public ASTNode<PrefixExpression, AST::Type::PostfixExpression> {
+    public:
+    /// The expression
+    const AST* expression;
+    /// The operator
+    const Token* op;
+
+    /// Constructor
+    PostfixExpression(const AST* expression, const Token* op) : expression(expression), op(op) {}
+
+    /// Build
+    static PostfixExpression* build(ASTContainer& c, const AST* expression, const AST* op) { return new (c.allocate<PostfixExpression>()) PostfixExpression(expression, Token::dynCast(op)); }
+};
+//---------------------------------------------------------------------------
+/// A bracket expression
+class BracketExpression : public ASTNode<BracketExpression, AST::Type::BracketExpression> {
+    public:
+    /// The base
+    const AST* base;
+    /// The arguments
+    const ExpressionList* arguments;
+
+    /// Constructor
+    BracketExpression(const AST* base, const ExpressionList* arguments) : base(base), arguments(arguments) {}
+
+    /// Build
+    static BracketExpression* build(ASTContainer& c, const AST* base, const AST* arguments) { return new (c.allocate<BracketExpression>()) BracketExpression(base, ExpressionList::dynCast(arguments)); }
+};
+//---------------------------------------------------------------------------
+/// A parenthesis expression
+class ParenExpression : public ASTNode<ParenExpression, AST::Type::ParenExpression> {
+    public:
+    /// The base
+    const AST* base;
+    /// The arguments
+    const ExpressionList* arguments;
+
+    /// Constructor
+    ParenExpression(const AST* base, const ExpressionList* arguments) : base(base), arguments(arguments) {}
+
+    /// Build
+    static ParenExpression* build(ASTContainer& c, const AST* base, const AST* arguments) { return new (c.allocate<ParenExpression>()) ParenExpression(base, ExpressionList::dynCast(arguments)); }
+};
+//---------------------------------------------------------------------------
+/// A dot expression
+class DotExpression : public ASTNode<DotExpression, AST::Type::DotExpression> {
+    public:
+    /// The base
+    const AST* base;
+    /// The id
+    const AST* id;
+
+    /// Constructor
+    DotExpression(const AST* base, const AST* id) : base(base), id(id) {}
+
+    /// Build
+    static DotExpression* build(ASTContainer& c, const AST* base, const AST* id) { return new (c.allocate<DotExpression>()) DotExpression(base, id); }
+};
+//---------------------------------------------------------------------------
+/// An alternative
+class Alternative : public ASTNode<Alternative, AST::Type::Alternative> {
+    public:
+    /// Sub type
+    enum SubType : bool { Is,
+                          As };
+    /// The subtype
+    SubType subType;
+    /// The name (if any)
+    const UnqualifiedId* name;
+    /// The constraint
+    const AST* constraint;
+    /// The statement
+    const AST* statement;
+
+    /// Constructor
+    Alternative(SubType subType, const UnqualifiedId* name, const AST* constraint, const AST* statement) : subType(subType), name(name), constraint(constraint), statement(statement) {}
+
+    /// Build
+    static Alternative* build(ASTContainer& c, SubType subType, const AST* name, const AST* constraint, const AST* statement) { return new (c.allocate<Alternative>()) Alternative(subType, UnqualifiedId::dynCastOrNull(name), constraint, statement); }
+};
+//---------------------------------------------------------------------------
+/// A sequence of alternatives
+class AlternativeSeq : public ListHelper<AlternativeSeq, Alternative, AST::Type::AlternativeSeq> {
+};
+//---------------------------------------------------------------------------
+/// An inspect expression
+class InspectExpression : public ASTNode<InspectExpression, AST::Type::InspectExpression> {
+    public:
+    /// The constexp marker (if any)
+    const Token* constexprMarker;
+    /// The expression
+    const AST* expression;
+    /// The id (if any)
+    const AST* id;
+    /// The alternatives
+    const AlternativeSeq* alternatives;
+
+    /// Constructor
+    InspectExpression(const Token* constexprMarker, const AST* expression, const AST* id, const AlternativeSeq* alternatives) : constexprMarker(constexprMarker), expression(expression), id(id), alternatives(alternatives) {}
+
+    /// Build
+    static InspectExpression* build(ASTContainer& c, const AST* constexprMarker, const AST* expression, const AST* id, const AST* alternatives) { return new (c.allocate<InspectExpression>()) InspectExpression(Token::dynCastOrNull(constexprMarker), expression, id, AlternativeSeq::dynCast(alternatives)); }
+};
+//---------------------------------------------------------------------------
+/// A literal
+class Literal : public ASTNode<Literal, AST::Type::Literal> {
+    public:
+    /// The subtype
+    enum SubType {
+        Identifier,
+        Decimal,
+        Float,
+        String,
+        Char,
+        Binary,
+        Octal,
+        Hex
+    };
+    /// The subtype
+    SubType subType;
+    /// The value
+    const Token* value;
+
+    /// Constructor
+    Literal(SubType subType, const Token* value) : subType(subType), value(value) {}
+
+    /// Build
+    static Literal* build(ASTContainer& c, SubType subType, const AST* value) { return new (c.allocate<Literal>()) Literal(subType, Token::dynCast(value)); }
+};
+//---------------------------------------------------------------------------
+/// A sequence of statements
+class StatementSeq : public ListHelper<StatementSeq, AST, AST::Type::StatementSeq> {
+    public:
+    /// Build
+    static StatementSeq* build(ASTContainer& c, const AST* s) { return new (c.allocate<StatementSeq>()) StatementSeq(s); }
+};
+//---------------------------------------------------------------------------
+/// An expression statement
+class ExpressionStatement : public ASTNode<ExpressionStatement, AST::Type::ExpressionStatement> {
+    public:
+    /// The expression
+    const AST* expression;
+
+    /// Constructor
+    ExpressionStatement(const AST* expression) : expression(expression) {}
+
+    /// Build
+    static ExpressionStatement* build(ASTContainer& c, const AST* expression) { return new (c.allocate<ExpressionStatement>()) ExpressionStatement(expression); }
+};
+//---------------------------------------------------------------------------
+/// A compound statement
+class CompoundStatement : public ASTNode<CompoundStatement, AST::Type::CompoundStatement> {
+    public:
+    /// The statements (if any)
+    const StatementSeq* statements;
+
+    /// Constructor
+    CompoundStatement(const StatementSeq* statements) : statements(statements) {}
+
+    /// Build
+    static CompoundStatement* build(ASTContainer& c, const AST* statements) { return new (c.allocate<CompoundStatement>()) CompoundStatement(StatementSeq::dynCastOrNull(statements)); }
+};
+//---------------------------------------------------------------------------
+/// A select statement
+class SelectStatement : public ASTNode<SelectStatement, AST::Type::SelectStatement> {
+    public:
+    /// The constexpr marker (if any)
+    const Token* constexprMarker;
+    /// The condition
+    const AST* condition;
+    /// The then part
+    const AST* thenPart;
+    /// The else part (if any)
+    const AST* elsePart;
+
+    /// Constructor
+    SelectStatement(const Token* constexprMarker, const AST* condition, const AST* thenPart, const AST* elsePart) : constexprMarker(constexprMarker), condition(condition), thenPart(thenPart), elsePart(elsePart) {}
+
+    /// Build
+    static SelectStatement* build(ASTContainer& c, const AST* constexprMarker, const AST* condition, const AST* thenPart, const AST* elsePart = nullptr) { return new (c.allocate<SelectStatement>()) SelectStatement(Token::dynCastOrNull(constexprMarker), condition, thenPart, elsePart); }
+};
+//---------------------------------------------------------------------------
+/// A declaration statement
+class DeclarationStatement : public ASTNode<DeclarationStatement, AST::Type::DeclarationStatement> {
+    public:
+    /// The declaration
+    const Declaration* declaration;
+
+    /// Constructor
+    DeclarationStatement(const Declaration* declaration) : declaration(declaration) {}
+
+    /// Build
+    static DeclarationStatement* build(ASTContainer& c, const AST* declaration) { return new (c.allocate<DeclarationStatement>()) DeclarationStatement(Declaration::dynCast(declaration)); }
+};
+//---------------------------------------------------------------------------
+/// A return statement
+class ReturnStatement : public ASTNode<ReturnStatement, AST::Type::ReturnStatement> {
+    public:
+    /// The expression (if any)
+    const AST* expression;
+
+    /// Constructor
+    ReturnStatement(const AST* expression) : expression(expression) {}
+
+    /// Build
+    static ReturnStatement* build(ASTContainer& c, const AST* expression) { return new (c.allocate<ReturnStatement>()) ReturnStatement(expression); }
+};
+//---------------------------------------------------------------------------
+/// A while statement
+class WhileStatement : public ASTNode<WhileStatement, AST::Type::WhileStatement> {
+    public:
+    /// The condition
+    const AST* condition;
+    /// The next statement (if any)
+    const AST* next;
+    /// The body
+    const AST* body;
+
+    /// Constructor
+    WhileStatement(const AST* condition, const AST* next, const AST* body) : condition(condition), next(next), body(body) {}
+
+    /// Build
+    static WhileStatement* build(ASTContainer& c, const AST* condition, const AST* next, const AST* body) { return new (c.allocate<WhileStatement>()) WhileStatement(condition, next, body); }
+};
+//---------------------------------------------------------------------------
+/// A do-while statement
+class DoWhileStatement : public ASTNode<WhileStatement, AST::Type::WhileStatement> {
+    public:
+    /// The body
+    const AST* body;
+    /// The condition
+    const AST* condition;
+    /// The next statement (if any)
+    const AST* next;
+
+    /// Constructor
+    DoWhileStatement(const AST* body, const AST* condition, const AST* next) : body(body), condition(condition), next(next) {}
+
+    /// Build
+    static DoWhileStatement* build(ASTContainer& c, const AST* body, const AST* condition, const AST* next) { return new (c.allocate<DoWhileStatement>()) DoWhileStatement(body, condition, next); }
+};
+//---------------------------------------------------------------------------
+/// A for statement
+class ForStatement : public ASTNode<ForStatement, AST::Type::ForStatement> {
+    public:
+    /// The value
+    const AST* value;
+    /// The next statement (if any)
+    const AST* next;
+    /// The body
+    const AST* body;
+
+    /// Constructor
+    ForStatement(const AST* value, const AST* next, const AST* body) : value(value), next(next), body(body) {}
+
+    /// Build
+    static ForStatement* build(ASTContainer& c, const AST* value, const AST* next, const AST* body) { return new (c.allocate<ForStatement>()) ForStatement(value, next, body); }
 };
 //---------------------------------------------------------------------------
 /// A translation unit
