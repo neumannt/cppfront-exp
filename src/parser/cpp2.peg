@@ -16,6 +16,9 @@
 #define PCC_GETCHAR(auxil) auxil->getChar()
 #define RANGE(a,b) auxil->getRange(a,b)
 
+// static const char *dbg_str[] = { "Evaluating rule", "Matched rule", "Abandoning rule" };
+// #define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) fprintf(stderr, "%*s%s %s @%zu [%.*s]\n", (int)((level) * 2), "", dbg_str[event], rule, pos, (int)(length), buffer)
+
 namespace ast = cpp2exp::ast;
 using AST = cpp2exp::AST;
 }
@@ -44,7 +47,7 @@ parameter_direction
  / skw_forward _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Forward, {$0s, $0e}); }
 
 function_type
-<- p:parameter_declaration_list (_ t:throws_specifier)? (_ r:return_list)? (_ c:contract_seq) { $$ = auxil->ast(AST::FunctionType, {$0s, $0e}, p, t, r, c); }
+<- p:parameter_declaration_list (_ t:throws_specifier)? (_ r:return_list)? (_ c:contract_seq)? { $$ = auxil->ast(AST::FunctionType, {$0s, $0e}, p, t, r, c); }
 
 throws_specifier
 <- kw_throws { $$ = auxil->ast(AST::Token, {$0s, $0e}); }
@@ -54,7 +57,7 @@ return_list
  / '->' _ l:parameter_declaration_list { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::Multiple, {$0s, $0e}, l); }
 
 contract
-<- '[[' _ k:contract_kind (_ e:id_expression)? _ ':' _ c:logical_or_expression (_ ',' t:string_literal)? _ ']]' { $$ = auxil->ast(AST::Contract, {$0s, $0e}, k, e, c, t); }
+<- '[[' _ k:contract_kind (_ e:id_expression)? _ ':' !':' _ c:logical_or_expression (_ ',' t:string_literal)? _ ']]' { $$ = auxil->ast(AST::Contract, {$0s, $0e}, k, e, c, t); }
 
 contract_kind
 <- skw_pre { $$ = auxil->ast2(AST::ContractKind, ast::ContractKind::Pre, {$0s, $0e}); }
@@ -66,14 +69,14 @@ contract_seq
  / c:contract { $$ = auxil->buildList(AST::ContractSeq, {$0s, $0e}, c); }
 
 unnamed_declaration
-<- ':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
- / ':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
- / ':' _ t:type_id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+<- ':' !':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
+ / ':' !':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
+ / ':' !':' _ t:type_id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
 
 unnamed_declaration_param
-<- ':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
- / ':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
- / ':' _ t:type_id_expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+<- ':' !':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
+ / ':' !':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
+ / ':' !':' _ t:type_id_expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
 
 unqualified_id
 <- kw_const _ i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstTemplate, {$0s, $0e}, i); }
@@ -107,13 +110,13 @@ member_name_specifier
 <- i:unqualified_id _ '.' { $$ = i; }
 
 id_expression
-<- i:unqualified_id { $$ = i; }
- / i:qualified_id { $$ = i; }
+<- i:qualified_id { $$ = i; }
+ / i:unqualified_id { $$ = i; }
  / t:fundamental_type { $$ = t; }
 
 id_expression_after_dot
-<- i:unqualified_id { $$ = i; }
- / i:qualified_id_after_dot { $$ = i; }
+<- i:qualified_id_after_dot { $$ = i; }
+ / i:unqualified_id { $$ = i; }
  / t:fundamental_type { $$ = t; }
 
 type_id_expression
@@ -151,7 +154,7 @@ declaration_param
 <- i:identifier _ d:unnamed_declaration_param { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
 
 declaration_seq
-<- l:declaration_seq e:declaration { $$ = auxil->appendList(AST::DeclarationSeq, {$0s, $0e}, l, e); }
+<- l:declaration_seq _ e:declaration { $$ = auxil->appendList(AST::DeclarationSeq, {$0s, $0e}, l, e); }
  / e:declaration { $$ = auxil->buildList(AST::DeclarationSeq, {$0s, $0e}, e); }
 
 expression
@@ -293,13 +296,13 @@ literal
  # alreated covered by id-expression in primary-expression: l:identifier { $$ = l; }
 
 statement
-<- s:expression_statement { $$ = s; }
+<- s:declaration_statement { $$ = s; }
  / s:compound_statement { $$ = s; }
  / s:selection_statement { $$ = s; }
- / s:declaration_statement { $$ = s; }
  / s:return_statement { $$ = s; }
  / s:iteration_statement { $$ = s; }
  / s:inspect_expression { $$ = s; }
+ / s:expression_statement { $$ = s; }
  # TODO skw_let _ '(' _ parameter_declaration_list ')' statement
 
 expression_statement
@@ -349,7 +352,7 @@ alternative
  / (n:alt_name _)? kw_as _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::As, {$0s, $0e}, n, c, s); }
 
 alt_name
-<- n:unqualified_id _ ':' { $$ = n; }
+<- n:unqualified_id _ ':' !':' { $$ = n; }
 
 identifier <- !keyword L(L/D)* { $$ = auxil->ast(AST::Identifier, {$0s, $0e}); }
 
