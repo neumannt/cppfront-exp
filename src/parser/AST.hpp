@@ -194,9 +194,12 @@ enum PostfixExpression { PlusPlus,
                          Deref,
                          Compl,
                          Dollar };
-enum PrefixExpression { Not,
-                        UPlus,
-                        UMinus };
+enum PrefixExpression {
+    Not,
+    UPlus,
+    UMinus,
+    Typeid
+};
 enum ReturnList { Single,
                   Multiple };
 enum UnnamedDeclaration { Function,
