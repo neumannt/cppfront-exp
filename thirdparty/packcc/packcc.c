@@ -1204,7 +1204,7 @@ static void node_const_array__term(node_const_array_t *array) {
 static context_t *create_context(const char *iname, const char *oname, const options_t *opts) {
     context_t *const ctx = (context_t *)malloc_e(sizeof(context_t));
     ctx->iname = strdup_e((iname && iname[0]) ? iname : "-");
-    ctx->sname = (oname && oname[0]) ? add_fileext(oname, "c") : replace_fileext(ctx->iname, "c");
+    ctx->sname = (oname && oname[0]) ? add_fileext(oname, "cpp") : replace_fileext(ctx->iname, "cpp");
     ctx->hname = (oname && oname[0]) ? add_fileext(oname, "h") : replace_fileext(ctx->iname, "h");
     ctx->ifile = (iname && iname[0]) ? fopen_rb_e(ctx->iname) : stdin;
     ctx->hid = strdup_e(ctx->hname); make_header_identifier(ctx->hid);
@@ -3340,11 +3340,13 @@ static bool_t generate(context_t *ctx) {
             "#endif /* !_MSC_VER */\n"
             "\n"
         );
+        char* iname = ctx->hname;
+        for (char* s=iname;*s;++s) if (*s=='/') iname=s+1;
         stream__printf(
             &sstream,
             "#include \"%s\"\n"
             "\n",
-            ctx->hname
+            iname
         );
         {
             size_t i;
