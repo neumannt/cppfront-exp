@@ -1,0 +1,624 @@
+%prefix "cpp2parser"
+
+%value "cpp2exp::AST*"
+%auxil "cpp2exp::Source*"
+
+%header {
+
+#include "parser/Source.hpp"
+
+}
+%source {
+#include "parser/Parser.hpp"
+#include "parser/AST.hpp"
+
+#define PCC_ERROR(auxil) return auxil->reportUnknownError()
+#define PCC_GETCHAR(auxil) auxil->getChar()
+#define RANGE(a,b) auxil->getRange(a,b)
+
+namespace ast = cpp2exp::ast;
+using AST = cpp2exp::AST;
+}
+
+translation_unit
+<- _ s:declaration_seq _ end_of_file { $$ = auxil->ast(AST::TranslationUnit, {$0s, $0e}, s); }
+ / _ end_of_file { $$ = auxil->ast(AST::TranslationUnit, {$0s, $0e}, nullptr); }
+
+
+parameter_declaration_list
+<-  '(' _ s:parameter_declaration_seq? _ ')' { $$ = auxil->ast(AST::ParameterDeclarationList, {$0s, $0e}, s); }
+
+parameter_declaration_seq
+<- l:parameter_declaration_seq _ ',' _ e:parameter_declaration { $$ = auxil->appendList(AST::ParameterDeclarationSeq, {$0s, $0e}, l, e); }
+ / d:parameter_declaration { $$ = auxil->buildList(AST::ParameterDeclarationSeq, {$0s, $0e}, d); }
+
+parameter_declaration
+<- d:parameter_direction? p:declaration_param { $$ = auxil->ast(AST::ParameterDeclaration, {$0s, $0e}, d, p); }
+
+parameter_direction
+<- skw_in _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::In, {$0s, $0e}); }
+ / skw_copy _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Copy, {$0s, $0e}); }
+ / skw_inout _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Inout, {$0s, $0e}); }
+ / skw_out _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Out, {$0s, $0e}); }
+ / skw_move _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Move, {$0s, $0e}); }
+ / skw_forward _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Forward, {$0s, $0e}); }
+
+function_type
+<- p:parameter_declaration_list (_ t:throws_specifier)? (_ r:return_list)? (_ c:contract_seq) { $$ = auxil->ast(AST::FunctionType, {$0s, $0e}, p, t, r, c); }
+
+throws_specifier
+<- kw_throws { $$ = auxil->ast(AST::Token, {$0s, $0e}); }
+
+return_list
+<- '->' _ e:id_expression { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::Single, {$0s, $0e}, e); }
+ / '->' _ l:parameter_declaration_list { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::Multiple, {$0s, $0e}, l); }
+
+contract
+<- '[[' _ k:contract_kind (_ e:id_expression)? _ ':' _ c:logical_or_expression (_ ',' t:string_literal)? _ ']]' { $$ = auxil->ast(AST::Contract, {$0s, $0e}, k, e, c, t); }
+
+contract_kind
+<- skw_pre { $$ = auxil->ast2(AST::ContractKind, ast::ContractKind::Pre, {$0s, $0e}); }
+ / skw_post { $$ = auxil->ast2(AST::ContractKind, ast::ContractKind::Post, {$0s, $0e}); }
+ / skw_assert { $$ = auxil->ast2(AST::ContractKind, ast::ContractKind::Assert, {$0s, $0e}); }
+
+contract_seq
+<- s:contract_seq c:contract { $$ = auxil->appendList(AST::ContractSeq, {$0s, $0e}, s, c); }
+ / c:contract { $$ = auxil->buildList(AST::ContractSeq, {$0s, $0e}, c); }
+
+unnamed_declaration
+<- ':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
+ / ':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
+ / ':' _ t:type_id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+
+unnamed_declaration_param
+<- ':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
+ / ':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
+ / ':' _ t:type_id_expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+
+unqualified_id
+<- kw_const _ i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstTemplate, {$0s, $0e}, i); }
+ / i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Template, {$0s, $0e}, i); }
+ / kw_const _ i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstNormal, {$0s, $0e}, i); }
+ / i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Normal, {$0s, $0e}, i); }
+
+template_id
+<- i:identifier _ '<' t:template_argument_list? _ '>' { $$ = auxil->buildList(AST::TemplateId, {$0s, $0e}, t); }
+
+template_argument_list
+<- l:template_argument_list _ ',' _ e:template_argument { $$ = auxil->appendList(AST::TemplateArgumentList, {$0s, $0e}, l, e); }
+ / e:template_argument { $$ = auxil->buildList(AST::TemplateArgumentList, {$0s, $0e}, e); }
+
+template_argument
+<- e:id_expression { $$ = auxil->ast2(AST::TemplateArgument, ast::TemplateArgument::IdExpression, {$0s, $0e}, e); }
+ / e:expression_no_cmp { $$ = auxil->ast2(AST::TemplateArgument, ast::TemplateArgument::Expression, {$0s, $0e}, e); }
+
+qualified_id
+<- s:nested_name_specifier _ i:unqualified_id { $$ = auxil->ast2(AST::QualifiedId, ast::QualifiedId::Nested, {$0s, $0e}, s, i); }
+ / s:member_name_specifier _ i:unqualified_id { $$ = auxil->ast2(AST::QualifiedId, ast::QualifiedId::Member, {$0s, $0e}, s, i); }
+
+qualified_id_after_dot
+<- s:nested_name_specifier _ i:unqualified_id { $$ = auxil->ast2(AST::QualifiedId, ast::QualifiedId::Nested, {$0s, $0e}, s, i); }
+
+nested_name_specifier
+<- '::' { $$ = nullptr; }
+ / i:unqualified_id _ '::' { $$ = i; }
+
+member_name_specifier
+<- i:unqualified_id _ '.' { $$ = i; }
+
+id_expression
+<- i:unqualified_id { $$ = i; }
+ / i:qualified_id { $$ = i; }
+ / t:fundamental_type { $$ = t; }
+
+id_expression_after_dot
+<- i:unqualified_id { $$ = i; }
+ / i:qualified_id_after_dot { $$ = i; }
+ / t:fundamental_type { $$ = t; }
+
+type_id_expression
+<- '*' _ i:id_expression { $$ = auxil->ast2(AST::TypeModifier, ast::TypeModifier::Pointer, {$0s, $0e}, i); }
+ / i:id_expression { $$ = i; }
+
+fundamental_type_modifier
+<- kw_unsigned { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Unsigned, {$0s, $0e}); }
+ / kw_signed { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Signed, {$0s, $0e}); }
+ / kw_long { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Long, {$0s, $0e}); }
+ / kw_short { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Signed, {$0s, $0e}); }
+
+fundamental_type_modifier_list
+<- l:fundamental_type_modifier_list _ e:fundamental_type_modifier { $$ = auxil->appendList(AST::FundamentalTypeModifierList, {$0s, $0e}, l, e); }
+ / e:fundamental_type_modifier { $$ = auxil->buildList(AST::FundamentalTypeModifierList, {$0s, $0e}, e); }
+
+fundamental_type
+<- kw_void { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Void, {$0s, $0e}, nullptr); }
+ / (l:fundamental_type_modifier_list _)? kw_char { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Char, {$0s, $0e}, l); }
+ / kw_char8_t { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Char8, {$0s, $0e}, nullptr); }
+ / kw_char16_t { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Char16, {$0s, $0e}, nullptr); }
+ / kw_char32_t { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Char32, {$0s, $0e}, nullptr); }
+ / kw_wchar_t { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::WChar, {$0s, $0e}, nullptr); }
+ / (l:fundamental_type_modifier_list _)? kw_int { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Int, {$0s, $0e}, l); }
+ / kw_bool { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Bool, {$0s, $0e}, nullptr); }
+ / kw_float { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Float, {$0s, $0e}, nullptr); }
+ / kw_double { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Double, {$0s, $0e}, nullptr); }
+ / kw_long _ kw_double { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::LongDouble, {$0s, $0e}, nullptr); }
+ / l:fundamental_type_modifier_list { $$ = auxil->ast2(AST::FundamentalType, ast::FundamentalType::Int, {$0s, $0e}, l); }
+
+declaration
+<- i:identifier _ d:unnamed_declaration { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
+
+declaration_param
+<- i:identifier _ d:unnamed_declaration_param { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
+
+declaration_seq
+<- l:declaration_seq e:declaration { $$ = auxil->appendList(AST::DeclarationSeq, {$0s, $0e}, l, e); }
+ / e:declaration { $$ = auxil->buildList(AST::DeclarationSeq, {$0s, $0e}, e); }
+
+expression
+<- e:assignment_expression { $$ = e; }
+
+expression_no_cmp
+<- e:assignment_expression_no_cmp { $$ = e; }
+
+expression_list
+<- l:expression_list _ ',' _ e:expression { $$ = auxil->appendList(AST::ExpressionList, {$0s, $0e}, l, e); }
+ / e:expression { $$ = auxil->buildList(AST::ExpressionList, {$0s, $0e}, e); }
+
+assignment_expression
+<- t:logical_or_expression _ o:assignment_operator _ e:assignment_expression  { $$ = auxil->ast(AST::AssignmentExpression, {$0s, $0e}, t, o, e); }
+ / e:logical_or_expression { $$ = e; }
+
+assignment_expression_no_cmp
+<- t:logical_or_expression_no_cmp _ o:assignment_operator _ e:assignment_expression_no_cmp  { $$ = auxil->ast(AST::AssignmentExpression, {$0s, $0e}, t, o, e); }
+ / e:logical_or_expression_no_cmp { $$ = e; }
+
+assignment_operator
+<- '=' (!'=') { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::Assignment, {$0s, $0e}); }
+ / '*=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::MultiplyEq, {$0s, $0e}); }
+ / '/=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::SlashEq, {$0s, $0e}); }
+ / '%=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::ModuloEq, {$0s, $0e}); }
+ / '+=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::PlusEq, {$0s, $0e}); }
+ / '-=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::MinusEq, {$0s, $0e}); }
+ / '>>=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::RightShiftEq, {$0s, $0e}); }
+ / '<<=' { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::LeftShiftEq, {$0s, $0e}); }
+ / at_and_eq { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::AmpersandEq, {$0s, $0e}); }
+ / at_xor_eq { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::CaretEq, {$0s, $0e}); }
+ / at_or_eq { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::PipeEq, {$0s, $0e}); }
+
+logical_or_expression
+<- l:logical_or_expression _ at_or _ r:logical_and_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalOr, {$0s, $0e}, l, r); }
+ / e:logical_and_expression { $$ = e; }
+logical_or_expression_no_cmp
+<- l:logical_or_expression_no_cmp _ at_or _ r:logical_and_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalOr, {$0s, $0e}, l, r); }
+ / e:logical_and_expression_no_cmp { $$ = e; }
+
+logical_and_expression
+<- l:logical_and_expression _ at_and _ r:bit_or_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalAnd, {$0s, $0e}, l, r); }
+ / e:bit_or_expression { $$ = e; }
+logical_and_expression_no_cmp
+<- l:logical_and_expression_no_cmp _ at_and _ r:bit_or_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalAnd, {$0s, $0e}, l, r); }
+ / e:bit_or_expression_no_cmp { $$ = e; }
+
+bit_or_expression
+<- l:bit_or_expression _ at_bitor _ r:bit_xor_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitOr, {$0s, $0e}, l, r); }
+ / e:bit_xor_expression { $$ = e; }
+bit_or_expression_no_cmp
+<- l:bit_or_expression_no_cmp _ at_bitor _ r:bit_xor_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitOr, {$0s, $0e}, l, r); }
+ / e:bit_xor_expression_no_cmp { $$ = e; }
+
+bit_xor_expression
+<- l:bit_xor_expression _ at_xor _ r:bit_and_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitXor, {$0s, $0e}, l, r); }
+ / e:bit_and_expression { $$ = e; }
+bit_xor_expression_no_cmp
+<- l:bit_xor_expression_no_cmp _ at_xor _ r:bit_and_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitXor, {$0s, $0e}, l, r); }
+ / e:bit_and_expression_no_cmp { $$ = e; }
+
+bit_and_expression
+<- l:bit_and_expression _ at_bitand _ r:equality_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitAnd, {$0s, $0e}, l, r); }
+ / e:equality_expression { $$ = e; }
+bit_and_expression_no_cmp
+<- l:bit_and_expression_no_cmp _ at_bitand _ r:equality_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitAnd, {$0s, $0e}, l, r); }
+ / e:equality_expression_no_cmp { $$ = e; }
+
+equality_expression
+<- l:equality_expression _ '==' _ r:relational_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Equal, {$0s, $0e}, l, r); }
+ / l:equality_expression _ at_not_eq _ r:relational_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::NotEqual, {$0s, $0e}, l, r); }
+ / e:relational_expression { $$ = e; }
+equality_expression_no_cmp
+<- l:equality_expression_no_cmp _ '==' _ r:relational_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Equal, {$0s, $0e}, l, r); }
+ / l:equality_expression_no_cmp _ at_not_eq _ r:relational_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::NotEqual, {$0s, $0e}, l, r); }
+ / e:relational_expression_no_cmp { $$ = e; }
+
+relational_expression
+<- l:relational_expression _ '<=' _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LessEq, {$0s, $0e}, l, r); }
+ / l:relational_expression _ '>=' _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::GreaterEq, {$0s, $0e}, l, r); }
+ / l:relational_expression _ '<' (!'<') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Less, {$0s, $0e}, l, r); }
+ / l:relational_expression _ '>' (!'>') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Greater, {$0s, $0e}, l, r); }
+ / e:compare_expression { $$ = e; }
+relational_expression_no_cmp
+<- e:compare_expression { $$ = e; }
+
+compare_expression
+<- l:compare_expression _ '<=>' _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$0s, $0e}, l, r); }
+ / e:shift_expression { $$ = e; }
+
+shift_expression
+<- l:shift_expression _ '<<' _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LeftShift, {$0s, $0e}, l, r); }
+ / l:shift_expression _ '>>' _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::RightShift, {$0s, $0e}, l, r); }
+ / e:additive_expression { $$ = e; }
+
+additive_expression
+<- l:additive_expression _ '+' (!'+') _ r:multiplicative_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Plus, {$0s, $0e}, l, r); }
+ / l:additive_expression _ '-' (!'-') _ r:multiplicative_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Minus, {$0s, $0e}, l, r); }
+ / e: multiplicative_expression { $$ = e; }
+
+multiplicative_expression
+<- l:multiplicative_expression _ '*' _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Mul, {$0s, $0e}, l, r); }
+ / l:multiplicative_expression _ '/' _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Div, {$0s, $0e}, l, r); }
+ / l:multiplicative_expression _ '%' _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Modulo, {$0s, $0e}, l, r); }
+ / e:is_as_expression { $$ = e; }
+
+is_as_expression
+<- e:prefix_expression { $$ = e; }
+
+prefix_expression
+<- at_not _ e:prefix_expression { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::Not, {$0s, $0e}, e); }
+ / '+' _ e:prefix_expression { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::UPlus, {$0s, $0e}, e); }
+ / '-' _ e:prefix_expression { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::UMinus, {$0s, $0e}, e); }
+ / e:postfix_expression { $$ = e; }
+
+postfix_expression
+<- e:postfix_expression '++' { $$ = auxil->ast2(AST::PostfixExpression, ast::PostfixExpression::PlusPlus, {$0s, $0e}, e); }
+ / e:postfix_expression '--' { $$ = auxil->ast2(AST::PostfixExpression, ast::PostfixExpression::MinusMinus, {$0s, $0e}, e); }
+ / e:postfix_expression '*' !('('/identifier/literal) { $$ = auxil->ast2(AST::PostfixExpression, ast::PostfixExpression::Deref, {$0s, $0e}, e); }
+ / e:postfix_expression '&' !('('/identifier/literal) { $$ = auxil->ast2(AST::PostfixExpression, ast::PostfixExpression::Ref, {$0s, $0e}, e); }
+ / e:postfix_expression at_compl { $$ = auxil->ast2(AST::PostfixExpression, ast::PostfixExpression::Compl, {$0s, $0e}, e); }
+ / e:postfix_expression '$' { $$ = auxil->ast2(AST::PostfixExpression, ast::PostfixExpression::Dollar, {$0s, $0e}, e); }
+ / e:postfix_expression _ '[' _ l:expression_list _ ']' { $$ = auxil->ast(AST::BracketExpression, {$0s, $0e}, e, l); }
+ / e:postfix_expression _ '(' _ l:expression_list? _ ')' { $$ = auxil->ast(AST::ParenExpression, {$0s, $0e}, e, l); }
+ / e:postfix_expression _ '.' _ l:id_expression_after_dot { $$ = auxil->ast(AST::DotExpression, {$0s, $0e}, e, l); }
+ / e: primary_expression { $$ = e; }
+
+primary_expression
+<- e:literal { $$ = e; }
+ / '(' _ e:expression_list _ ')' { $$ = e; }
+ / e:id_expression_after_dot { $$ = e; }
+ / e:unnamed_declaration { $$ = e; }
+ # TODO / e:inspect_expression { $$ = e; }
+
+
+literal
+<- l:numeric_literal { $$ = l; }
+ / l:string_literal { $$ = l; }
+ # alreated covered by id-expression in primary-expression: l:identifier { $$ = l; }
+
+statement
+<- s:expression_statement { $$ = s; }
+ / s:compound_statement { $$ = s; }
+ / s:selection_statement { $$ = s; }
+ / s:declaration_statement { $$ = s; }
+ / s:return_statement { $$ = s; }
+ / s:iteration_statement { $$ = s; }
+ / s:inspect_expression { $$ = s; }
+ # TODO skw_let _ '(' _ parameter_declaration_list ')' statement
+
+expression_statement
+<- e:expression _ ';' { $$ = auxil->ast(AST::ExpressionStatement, {$0s, $0e}, e); }
+
+
+compound_statement
+<- '{' _ s:statement_seq? _ '}' { $$ = auxil->ast(AST::CompoundStatement, {$0s, $0e}, s); }
+
+
+statement_seq
+<- l:statement_seq _ e:statement { $$ = auxil->appendList(AST::StatementSeq, {$0s, $0e}, l, e); }
+ / e:statement { $$ = auxil->buildList(AST::StatementSeq, {$0s, $0e}, e); }
+
+selection_statement
+<- kw_if s:constexpr? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, e, t); }
+ / kw_if s:constexpr? _ c:expression _ t:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, t, nullptr); }
+
+constexpr
+<- _ kw_constexpr { $$ = auxil->ast(AST::ConststExpr, {$0s, $0e}); }
+
+
+declaration_statement
+<- d:declaration { $$ = auxil->ast(AST::DeclarationStatement, {$0s, $0e}, d); }
+
+return_statement
+<- kw_return (_ e:expression)? _ ';' { $$ = auxil->ast(AST::ReturnStatement, {$0s, $0e}, e); }
+
+iteration_statement
+<- kw_while _ c:logical_or_expression (_ n:next_clause)? _ s:compound_statement { $$ = auxil->ast(AST::WhileStatement, {$0s, $0e}, c, n, s); }
+ / kw_do _ s:compound_statement _ kw_while _ c:logical_or_expression (_ n:next_clause)? _ ';' { $$ = auxil->ast(AST::DoWhileStatement, {$0s, $0e}, s, c, n); }
+ / kw_for _ e:expression (_ n:next_clause)? _ kw_do _ d:unnamed_declaration _ ';' { $$ = auxil->ast(AST::ForStatement, {$0s, $0e}, e, n, d); }
+
+next_clause
+<- skw_next _ e:assignment_expression { $$ = e; }
+
+inspect_expression
+<- kw_inspect s:constexpr? _ e:expression _ '->' _ i:id_expression _ '{' _ a:alternative_seq? _ '}' { $$ = auxil->ast(AST::InspectExpression, {$0s, $0e}, s, e, i, a); }
+ / kw_inspect s:constexpr? _ e:expression _ '{' _ a:alternative_seq? _ '}' { $$ = auxil->ast(AST::InspectExpression, {$0s, $0e}, s, e, nullptr, a); }
+
+alternative_seq
+<- l:alternative_seq _ e:alternative { $$ = auxil->appendList(AST::AlternativeSeq, {$0s, $0e}, l, e); }
+ / e:alternative { $$ = auxil->buildList(AST::Alternative, {$0s, $0e}, e); }
+
+alternative
+<- (n:alt_name _)? kw_is _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::Is, {$0s, $0e}, n, c, s); }
+ / (n:alt_name _)? kw_as _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::As, {$0s, $0e}, n, c, s); }
+
+alt_name
+<- n:unqualified_id _ ':' { $$ = n; }
+
+identifier <- !keyword L(L/D)* { $$ = auxil->ast(AST::Identifier, {$0s, $0e}); }
+
+numeric_literal
+<- '0'[xX]X[0-9a-fA-F']* (![.pP]) { $$ = auxil->ast(AST::HexInteger, {$0s, $0e}); }
+ / '0'O[0-7']* { $$ = auxil->ast(AST::OctalInteger, {$0s, $0e}); }
+ / !'0' D[0-9']* { $$ = auxil->ast(AST::DecimalInteger, {$0s, $0e}); }
+ / D[0-9']*(([.]D+([eE][-+]?D+)?)/([eE][-+]?D+)) { $$ = auxil->ast(AST::DecimalFloat, {$0s, $0e}); }
+ / '0'[xX]X[0-9a-fA-F']*(([.]D+([pP][-+]?D+)?)/([pP][-+]?D+)) { $$ = auxil->ast(AST::HexFloat, {$0s, $0e}); }
+ / '0' (![0-9']) { $$ = auxil->ast(AST::DecimalInteger, {$0s, $0e}); }
+
+string_literal
+<- '"' ("\\\\" / "\\\"" / [^"])* '"' L?(L/D)* { $$ = auxil->ast(AST::StringLiteral, {$0s, $0e}); }
+ / '\'' ("\\\\" / "\\\'" / [^'])* '\'' { $$ = auxil->ast(AST::CharLiteral, {$0s, $0e}); }
+ / ("u8"/"u"/"U") '"' ("\\\\" / "\\\"" / [^"])* '"' L?(L/D)* { $$ = auxil->ast(AST::StringLiteral, {$0s, $0e}); }
+ / ("u8"/"u"/"U")? 'R' '"' <[^ \t\n\r\v()\\]*> '(' ((!(')'$1'"')) .)* ')' $1 '"' L?(L/D)* { $$ = auxil->ast(AST::StringLiteral, {$0s, $0e}); }
+
+keyword
+<- kw_alignas
+ / kw_alignof
+ / kw_asm
+ / kw_as
+ / kw_auto
+ / kw_bool
+ / kw_break
+ / kw_case
+ / kw_catch
+ / kw_char
+ / kw_char16_t
+ / kw_char32_t
+ / kw_char8_t
+ / kw_class
+ / kw_co_await
+ / kw_co_return
+ / kw_co_yield
+ / kw_concept
+ / kw_const
+ / kw_const_cast
+ / kw_consteval
+ / kw_constexpr
+ / kw_constinit
+ / kw_continue
+ / kw_decltype
+ / kw_default
+ / kw_delete
+ / kw_double
+ / kw_do
+ / kw_dynamic_cast
+ / kw_else
+ / kw_enum
+ / kw_explicit
+ / kw_export
+ / kw_extern
+ / kw_false
+ / kw_float
+ / kw_for
+ / kw_friend
+ / kw_goto
+ / kw_if
+ / kw_import
+ / kw_inline
+ / kw_inspect
+ / kw_int
+ / kw_is
+ / kw_long
+ / kw_module
+ / kw_mutable
+ / kw_namespace
+ / kw_new
+ / kw_noexcept
+ / kw_nullptr
+ / kw_operator
+ / kw_private
+ / kw_protected
+ / kw_public
+ / kw_register
+ / kw_reinterpret_cast
+ / kw_requires
+ / kw_return
+ / kw_short
+ / kw_signed
+ / kw_sizeof
+ / kw_static
+ / kw_static_assert
+ / kw_static_cast
+ / kw_struct
+ / kw_switch
+ / kw_template
+ / kw_this
+ / kw_thread_local
+ / kw_throws
+ / kw_throw
+ / kw_true
+ / kw_try
+ / kw_typedef
+ / kw_typeid
+ / kw_typename
+ / kw_union
+ / kw_unsigned
+ / kw_using
+ / kw_virtual
+ / kw_void
+ / kw_volatile
+ / kw_wchar_t
+ / kw_while
+ / atkw_and
+ / atkw_and_eq
+ / atkw_bitand
+ / atkw_bitor
+ / atkw_compl
+ / atkw_not
+ / atkw_not_eq
+ / atkw_or
+ / atkw_or_eq
+ / atkw_xor
+ / atkw_xor_eq
+
+kw_alignas <- 'alignas' !(L/D)
+kw_alignof <- 'alignof' !(L/D)
+kw_asm <- 'asm' !(L/D)
+kw_as <- 'as' !(L/D)
+kw_auto <- 'auto' !(L/D)
+kw_bool <- 'bool' !(L/D)
+kw_break <- 'break' !(L/D)
+kw_case <- 'case' !(L/D)
+kw_catch <- 'catch' !(L/D)
+kw_char <- 'char' !(L/D)
+kw_char16_t <- 'char16_t' !(L/D)
+kw_char32_t <- 'char32_t' !(L/D)
+kw_char8_t <- 'char8_t' !(L/D)
+kw_class <- 'class' !(L/D)
+kw_co_await <- 'co_await' !(L/D)
+kw_co_return <- 'co_return' !(L/D)
+kw_co_yield <- 'co_yield' !(L/D)
+kw_concept <- 'concept' !(L/D)
+kw_const <- 'const' !(L/D)
+kw_const_cast <- 'const_cast' !(L/D)
+kw_consteval <- 'consteval' !(L/D)
+kw_constexpr <- 'constexpr' !(L/D)
+kw_constinit <- 'constinit' !(L/D)
+kw_continue <- 'continue' !(L/D)
+kw_decltype <- 'decltype' !(L/D)
+kw_default <- 'default' !(L/D)
+kw_delete <- 'delete' !(L/D)
+kw_double <- 'double' !(L/D)
+kw_do <- 'do' !(L/D)
+kw_dynamic_cast <- 'dynamic_cast' !(L/D)
+kw_else <- 'else' !(L/D)
+kw_enum <- 'enum' !(L/D)
+kw_explicit <- 'explicit' !(L/D)
+kw_export <- 'export' !(L/D)
+kw_extern <- 'extern' !(L/D)
+kw_false <- 'false' !(L/D)
+kw_float <- 'float' !(L/D)
+kw_for <- 'for' !(L/D)
+kw_friend <- 'friend' !(L/D)
+kw_goto <- 'goto' !(L/D)
+kw_if <- 'if' !(L/D)
+kw_import <- 'import' !(L/D)
+kw_inline <- 'inline' !(L/D)
+kw_inspect <- 'inspect' !(L/D)
+kw_int <- 'int' !(L/D)
+kw_is <- 'is' !(L/D)
+kw_long <- 'long' !(L/D)
+kw_module <- 'module' !(L/D)
+kw_mutable <- 'mutable' !(L/D)
+kw_namespace <- 'namespace' !(L/D)
+kw_new <- 'new' !(L/D)
+kw_noexcept <- 'noexcept' !(L/D)
+kw_nullptr <- 'nullptr' !(L/D)
+kw_operator <- 'operator' !(L/D)
+kw_private <- 'private' !(L/D)
+kw_protected <- 'protected' !(L/D)
+kw_public <- 'public' !(L/D)
+kw_register <- 'register' !(L/D)
+kw_reinterpret_cast <- 'reinterpret_cast' !(L/D)
+kw_requires <- 'requires' !(L/D)
+kw_return <- 'return' !(L/D)
+kw_short <- 'short' !(L/D)
+kw_signed <- 'signed' !(L/D)
+kw_sizeof <- 'sizeof' !(L/D)
+kw_static <- 'static' !(L/D)
+kw_static_assert <- 'static_assert' !(L/D)
+kw_static_cast <- 'static_cast' !(L/D)
+kw_struct <- 'struct' !(L/D)
+kw_switch <- 'switch' !(L/D)
+kw_template <- 'template' !(L/D)
+kw_this <- 'this' !(L/D)
+kw_thread_local <- 'thread_local' !(L/D)
+kw_throws <- 'throws' !(L/D)
+kw_throw <- 'throw' !(L/D)
+kw_true <- 'true' !(L/D)
+kw_try <- 'try' !(L/D)
+kw_typedef <- 'typedef' !(L/D)
+kw_typeid <- 'typeid' !(L/D)
+kw_typename <- 'typename' !(L/D)
+kw_union <- 'union' !(L/D)
+kw_unsigned <- 'unsigned' !(L/D)
+kw_using <- 'using' !(L/D)
+kw_virtual <- 'virtual' !(L/D)
+kw_void <- 'void' !(L/D)
+kw_volatile <- 'volatile' !(L/D)
+kw_wchar_t <- 'wchar_t' !(L/D)
+kw_while <- 'while' !(L/D)
+
+atkw_and <- 'and' !(L/D)
+at_and <- '&&' / atkw_and
+atkw_and_eq <- 'and_eq' !(L/D)
+at_and_eq <- '&=' / atkw_and_eq
+atkw_bitand <- 'bitand' !(L/D)
+at_bitand <- '&' (![&=]) / atkw_bitand
+atkw_bitor <- 'bitor' !(L/D)
+at_bitor <- '|' (![|=]) / atkw_bitor
+atkw_compl <- 'compl' !(L/D)
+at_compl <- '~' / atkw_compl
+atkw_not <- 'not' !(L/D)
+at_not <- '!' (!'=') / atkw_not
+atkw_not_eq <- 'not_eq' !(L/D)
+at_not_eq <- '!=' / atkw_not_eq
+atkw_or <- 'or' !(L/D)
+at_or <- '||' / atkw_or
+atkw_or_eq <- 'or_eq' !(L/D)
+at_or_eq <- '|=' / atkw_or_eq
+atkw_xor <- 'xor' !(L/D)
+at_xor <- '^' (!'=') / atkw_xor
+atkw_xor_eq <- 'xor_eq' !(L/D)
+at_xor_eq <- '&&' / atkw_xor_eq
+
+skw_pre <- 'pre' !(L/D)
+skw_post <- 'post' !(L/D)
+skw_assert <- 'assert' !(L/D)
+skw_in <- 'in' !(L/D)
+skw_copy <- 'copy' !(L/D)
+skw_inout <- 'inout' !(L/D)
+skw_out <- 'out' !(L/D)
+skw_move <- 'move' !(L/D)
+skw_forward <- 'forward' !(L/D)
+# TODO skw_let <- 'let' !(L/D)
+skw_next <- 'next' !(L/D)
+
+O <- [0-7]
+D <- [0-9]
+X <- [0-9a-fA-F]
+L <- [a-zA-Z_]
+
+_ <- ( space / comment )*
+comment
+<- '//' ( !(end_of_line / end_of_file) . )* (end_of_line) / (end_of_file)
+ / '/*' ( !'*/' . )* '*/'
+ / '/*' ( !'*/' . )* { auxil->reportError("unclosed comment block", {$0s, $0e}); }
+space <- blank / end_of_line
+blank <- [ \t\v\f]
+end_of_line <- '\r\n' / '\n' / '\r'
+end_of_file <- !.
+
+
+
+%%
+
+namespace cpp2exp {
+
+const AST* Parser::parseImpl()
+{
+   Source s(astContainer, fileName, content);
+   cpp2parser_context_t *ctx = cpp2parser_create(&s);
+   cpp2exp::AST* tree = nullptr;
+   auto res = cpp2parser_parse(ctx, &tree);
+   cpp2parser_destroy(ctx);
+   return (res == 0) ? tree : nullptr;
+}
+
+}

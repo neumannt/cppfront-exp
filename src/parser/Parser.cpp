@@ -35,6 +35,7 @@ const AST* Parser::parseFile(const string& fileName)
             addError({}, "unable top open " + fileName);
             return nullptr;
         }
+        this->fileName = fileName;
         content = string(istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
     }
 

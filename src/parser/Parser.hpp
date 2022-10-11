@@ -5,25 +5,25 @@
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
-#include "AST.hpp"
-#include "Lexer.hpp"
+#include "parser/AST.hpp"
+#include <string>
+#include <vector>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 /// An error description
 struct Error {
     /// The occurrence in the source
-    Lexer::SourceLocation loc;
+    SourceLocation loc;
     /// The text
     std::string text;
 };
 //---------------------------------------------------------------------------
 /// A parser
 class Parser {
-    public:
-    using SourceLocation = Lexer::SourceLocation;
-
     private:
+    /// The file name
+    std::string fileName;
     /// The content
     std::string content;
     /// The AST nodes
@@ -32,7 +32,7 @@ class Parser {
     std::vector<Error> errors;
 
     /// Store an error message
-    void addError(Lexer::SourceLocation loc, std::string text);
+    void addError(SourceLocation loc, std::string text);
 
     /// The bison interface
     const AST* parseImpl();

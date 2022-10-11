@@ -1,5 +1,4 @@
 #include "AST.hpp"
-#include "Lexer.hpp"
 #include <iostream>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -37,30 +36,5 @@ void* ASTContainer::allocateRaw(unsigned requiredSize)
     return result;
 }
 //---------------------------------------------------------------------------
-const AST* AST::dynCastImpl(Type requiredType, const AST* ast)
-// Dyncast implementation. Checks that the type is correct
-{
-    // Make sure our AST node has the correct type
-    if ((!ast) || (ast->type != requiredType)) {
-        // Debug output
-        std::cerr << "internal error, AST type confusion. Got ";
-        if (!ast)
-            std::cerr << "nullptr";
-        else
-            std::cerr << static_cast<unsigned>(ast->type);
-        std::cerr << ", expected " << static_cast<unsigned>(requiredType) << std::endl;
-        std::exit(1);
-    }
-
-    return ast;
-}
-//---------------------------------------------------------------------------
-namespace ast {
-//---------------------------------------------------------------------------
-Token::Token(std::string_view content, unsigned fromLine, unsigned fromColumn, unsigned toLine, unsigned toColumn)
-    : content(content), fromLine(fromLine), fromColumn(fromColumn), toLine(toLine), toColumn(toColumn) {
-}
-//---------------------------------------------------------------------------
-}
 }
 //---------------------------------------------------------------------------
