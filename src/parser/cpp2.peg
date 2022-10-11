@@ -286,7 +286,7 @@ postfix_expression
 
 primary_expression
 <- e:literal { $$ = e; }
- / '(' _ e:expression_list _ ')' { $$ = e; }
+ / '(' _ e:expression_list? _ ')' { $$ = auxil->ast(AST::ExpressionListExpression, {$0s, $0e}, e); }
  / e:id_expression_after_dot { $$ = e; }
  / e:unnamed_declaration { $$ = e; }
  # TODO / e:inspect_expression { $$ = e; }

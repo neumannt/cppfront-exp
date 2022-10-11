@@ -36,6 +36,7 @@ class AST {
         DoWhileStatement,
         DotExpression,
         ExpressionList,
+        ExpressionListExpression,
         ExpressionStatement,
         ForStatement,
         FunctionType,
