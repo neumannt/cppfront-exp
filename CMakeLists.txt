@@ -15,3 +15,4 @@ add_executable(cppfront-exp
 	${BISON_Cpp2Parser_OUTPUTS}
 )
 
+add_executable(packcc thirdparty/packcc/packcc.c)
