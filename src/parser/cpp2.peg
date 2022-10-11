@@ -262,7 +262,9 @@ multiplicative_expression
  / e:is_as_expression { $$ = e; }
 
 is_as_expression
-<- e:prefix_expression { $$ = e; }
+<- l:is_as_expression _ kw_is _ r:id_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Is, {$0s, $0e}, l, r); }
+ / l:is_as_expression _ kw_as _ r:id_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::As, {$0s, $0e}, l, r); }
+ / e:prefix_expression { $$ = e; }
 
 prefix_expression
 <- at_not _ e:prefix_expression { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::Not, {$0s, $0e}, e); }
@@ -293,7 +295,7 @@ primary_expression
 literal
 <- l:numeric_literal { $$ = l; }
  / l:string_literal { $$ = l; }
- # alreated covered by id-expression in primary-expression: l:identifier { $$ = l; }
+ # already covered by id-expression in primary-expression: l:identifier { $$ = l; }
 
 statement
 <- s:declaration_statement { $$ = s; }
@@ -303,6 +305,7 @@ statement
  / s:iteration_statement { $$ = s; }
  / s:inspect_expression { $$ = s; }
  / s:expression_statement { $$ = s; }
+ / kw_delete ('[]')? _ expression _ ';' { auxil->reportError("'delete' and owning raw pointers are not supported in Cpp2   - use unique.new<T>, shared.new<T>, or gc.new<T> instead (in that order)", {$0s, $0e}); }
  # TODO skw_let _ '(' _ parameter_declaration_list ')' statement
 
 expression_statement
@@ -348,8 +351,8 @@ alternative_seq
  / e:alternative { $$ = auxil->buildList(AST::Alternative, {$0s, $0e}, e); }
 
 alternative
-<- (n:alt_name _)? kw_is _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::Is, {$0s, $0e}, n, c, s); }
- / (n:alt_name _)? kw_as _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::As, {$0s, $0e}, n, c, s); }
+<- (n:alt_name _)? kw_is _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::MatchIs, {$0s, $0e}, n, c, s); }
+ / (n:alt_name _)? kw_as _ c:id_expression _ '=' !'=' _ s:statement { $$ = auxil->ast2(AST::Alternative, ast::Alternative::MatchAs, {$0s, $0e}, n, c, s); }
 
 alt_name
 <- n:unqualified_id _ ':' !':' { $$ = n; }
@@ -359,8 +362,8 @@ identifier <- !keyword L(L/D)* { $$ = auxil->ast(AST::Identifier, {$0s, $0e}); }
 numeric_literal
 <- '0'[xX]X[0-9a-fA-F']* (![.pP]) { $$ = auxil->ast(AST::HexInteger, {$0s, $0e}); }
  / '0'O[0-7']* { $$ = auxil->ast(AST::OctalInteger, {$0s, $0e}); }
- / !'0' D[0-9']* { $$ = auxil->ast(AST::DecimalInteger, {$0s, $0e}); }
  / D[0-9']*(([.]D+([eE][-+]?D+)?)/([eE][-+]?D+)) { $$ = auxil->ast(AST::DecimalFloat, {$0s, $0e}); }
+ / !'0' D[0-9']* { $$ = auxil->ast(AST::DecimalInteger, {$0s, $0e}); }
  / '0'[xX]X[0-9a-fA-F']*(([.]D+([pP][-+]?D+)?)/([pP][-+]?D+)) { $$ = auxil->ast(AST::HexFloat, {$0s, $0e}); }
  / '0' (![0-9']) { $$ = auxil->ast(AST::DecimalInteger, {$0s, $0e}); }
 

@@ -127,8 +127,8 @@ class ASTContainer {
 //---------------------------------------------------------------------------
 namespace ast {
 //---------------------------------------------------------------------------
-enum Alternative { Is,
-                   As };
+enum Alternative { MatchIs,
+                   MatchAs };
 enum AssignmentOperator { Assignment,
                           MultiplyEq,
                           SlashEq,
@@ -140,25 +140,29 @@ enum AssignmentOperator { Assignment,
                           AmpersandEq,
                           CaretEq,
                           PipeEq };
-enum BinaryExpression { LogicalAnd,
-                        LogicalOr,
-                        BitAnd,
-                        BitOr,
-                        BitXor,
-                        Equal,
-                        NotEqual,
-                        Less,
-                        LessEq,
-                        Greater,
-                        GreaterEq,
-                        Spaceship,
-                        LeftShift,
-                        RightShift,
-                        Plus,
-                        Minus,
-                        Mul,
-                        Div,
-                        Modulo };
+enum BinaryExpression {
+    LogicalAnd,
+    LogicalOr,
+    BitAnd,
+    BitOr,
+    BitXor,
+    Equal,
+    NotEqual,
+    Less,
+    LessEq,
+    Greater,
+    GreaterEq,
+    Spaceship,
+    LeftShift,
+    RightShift,
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    Modulo,
+    Is,
+    As
+};
 enum ContractKind { Pre,
                     Post,
                     Assert };
