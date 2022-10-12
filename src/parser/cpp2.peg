@@ -103,8 +103,13 @@ qualified_id_after_dot
 <- s:nested_name_specifier _ i:unqualified_id { $$ = auxil->ast2(AST::QualifiedId, ast::QualifiedId::Nested, {$0s, $0e}, s, i); }
 
 nested_name_specifier
-<- '::' { $$ = nullptr; }
- / i:unqualified_id _ '::' { $$ = i; }
+<- '::' _ l:nested_name_specifier_list { $$ = auxil->ast2(AST::NestedNameSpecifier, ast::NestedNameSpecifier::Absolute, {$0s, $0e}, l); }
+ / '::' { $$ = auxil->ast2(AST::NestedNameSpecifier, ast::NestedNameSpecifier::Absolute, {$0s, $0e}, nullptr); }
+ / l:nested_name_specifier_list { $$ = auxil->ast2(AST::NestedNameSpecifier, ast::NestedNameSpecifier::Relative, {$0s, $0e}, l); }
+
+nested_name_specifier_list
+<- l:nested_name_specifier_list _ e:unqualified_id _ '::' { $$ = auxil->appendList(AST::NestedNameSpecifierList, {$0s, $0e}, l, e); }
+ / e:unqualified_id _ '::' { $$ = auxil->buildList(AST::NestedNameSpecifierList, {$0s, $0e}, e); }
 
 member_name_specifier
 <- i:unqualified_id _ '.' { $$ = i; }

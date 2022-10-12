@@ -47,6 +47,8 @@ class AST {
         HexInteger,
         Identifier,
         InspectExpression,
+        NestedNameSpecifier,
+        NestedNameSpecifierList,
         OctalInteger,
         ParameterDeclaration,
         ParameterDeclarationList,
@@ -182,6 +184,8 @@ enum FundamentalTypeModifier { Signed,
                                Unsigned,
                                Long,
                                Short };
+enum NestedNameSpecifier { Absolute,
+                           Relative };
 enum ParameterDirection { In,
                           Out,
                           Inout,
