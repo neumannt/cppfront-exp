@@ -163,6 +163,8 @@ declaration_param
 declaration_seq
 <- l:declaration_seq _ e:declaration { $$ = auxil->appendList(AST::DeclarationSeq, {$0s, $0e}, l, e); }
  / e:declaration { $$ = auxil->buildList(AST::DeclarationSeq, {$0s, $0e}, e); }
+ ## error handling
+ / e:declaration ~{ auxil->reportError("invalid declaration statement", {$0s, $0e}); }
 
 expression
 <- e:assignment_expression { $$ = e; }
@@ -323,16 +325,23 @@ expression_statement
 
 
 compound_statement
-<- '{' _ s:statement_seq? _ '}' { $$ = auxil->ast(AST::CompoundStatement, {$0s, $0e}, s); }
+<- '{' _ '}' { $$ = auxil->ast(AST::CompoundStatement, {$0s, $0e}, nullptr); }
+ / '{' _ s:statement_seq _ '}' { $$ = auxil->ast(AST::CompoundStatement, {$0s, $0e}, s); }
 
 
 statement_seq
 <- l:statement_seq _ e:statement { $$ = auxil->appendList(AST::StatementSeq, {$0s, $0e}, l, e); }
  / e:statement { $$ = auxil->buildList(AST::StatementSeq, {$0s, $0e}, e); }
+ / e:statement ~{ auxil->reportError("invalid statement", {$0s, $0e}); }
 
 selection_statement
-<- kw_if s:constexpr? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, e, t); }
- / kw_if s:constexpr? _ c:expression _ t:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, t, nullptr); }
+<- kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, e, t); }
+ / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, t, nullptr); }
+ ## error handling
+ / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement ~{ auxil->reportError("invalid if-else statement", {$0s, $0e}); }
+ / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement ~{ auxil->reportError("invalid if statement", {$0s, $0e}); }
+ / kw_if (_ s:constexpr)? _ c:expression ~{ auxil->reportError("invalid if condition", {$0s, $0e}); }
+
 
 constexpr
 <- _ kw_constexpr { $$ = auxil->ast(AST::ConststExpr, {$0s, $0e}); }
@@ -343,6 +352,8 @@ declaration_statement
 
 return_statement
 <- kw_return (_ e:expression)? _ ';' { $$ = auxil->ast(AST::ReturnStatement, {$0s, $0e}, e); }
+ ## error handling
+ / kw_return ((_ e:expression)? _ ';') ~{ auxil->reportError("invalid return statement", {$0s, $0e}); }
 
 iteration_statement
 <- kw_while _ c:logical_or_expression (_ n:next_clause)? _ s:compound_statement { $$ = auxil->ast(AST::WhileStatement, {$0s, $0e}, c, n, s); }
