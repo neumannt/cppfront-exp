@@ -49,6 +49,7 @@ class AST {
         InspectExpression,
         NestedNameSpecifier,
         NestedNameSpecifierList,
+        NewExpression,
         OctalInteger,
         ParameterDeclaration,
         ParameterDeclarationList,

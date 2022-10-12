@@ -16,8 +16,10 @@
 #define PCC_GETCHAR(auxil) auxil->getChar()
 #define RANGE(a,b) auxil->getRange(a,b)
 
-// static const char *dbg_str[] = { "Evaluating rule", "Matched rule", "Abandoning rule" };
-// #define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) fprintf(stderr, "%*s%s %s @%zu [%.*s]\n", (int)((level) * 2), "", dbg_str[event], rule, pos, (int)(length), buffer)
+#if 1
+static const char *dbg_str[] = { "Evaluating rule", "Matched rule", "Abandoning rule" };
+#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) fprintf(stderr, "%*s%s %s @%zu [%.*s]\n", (int)((level) * 2), "", dbg_str[event], rule, pos, (int)(length), buffer)
+#endif
 
 namespace ast = cpp2exp::ast;
 using AST = cpp2exp::AST;
@@ -85,7 +87,7 @@ unqualified_id
  / i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Normal, {$0s, $0e}, i); }
 
 template_id
-<- i:identifier _ '<' t:template_argument_list? _ '>' { $$ = auxil->buildList(AST::TemplateId, {$0s, $0e}, t); }
+<- i:identifier _ '<' _ t:template_argument_list? _ '>' { $$ = auxil->buildList(AST::TemplateId, {$0s, $0e}, t); }
 
 template_argument_list
 <- l:template_argument_list _ ',' _ e:template_argument { $$ = auxil->appendList(AST::TemplateArgumentList, {$0s, $0e}, l, e); }
@@ -294,6 +296,7 @@ primary_expression
  / '(' _ e:expression_list? _ ')' { $$ = auxil->ast(AST::ExpressionListExpression, {$0s, $0e}, e); }
  / e:id_expression_after_dot { $$ = e; }
  / kw_typeid _ '(' _ e:expression _ ')' { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::Typeid, {$0s, $0e}, e); }
+ / kw_new _ '<' t:id_expression _ '>' _ '(' _ l:expression_list? _ ')' { $$ = auxil->ast(AST::NewExpression, {$0s, $0e}, t, l); }
  / e:unnamed_declaration { $$ = e; }
  / e:inspect_expression { $$ = e; }
 
@@ -343,7 +346,7 @@ return_statement
 iteration_statement
 <- kw_while _ c:logical_or_expression (_ n:next_clause)? _ s:compound_statement { $$ = auxil->ast(AST::WhileStatement, {$0s, $0e}, c, n, s); }
  / kw_do _ s:compound_statement _ kw_while _ c:logical_or_expression (_ n:next_clause)? _ ';' { $$ = auxil->ast(AST::DoWhileStatement, {$0s, $0e}, s, c, n); }
- / kw_for _ e:expression (_ n:next_clause)? _ kw_do _ d:unnamed_declaration _ ';' { $$ = auxil->ast(AST::ForStatement, {$0s, $0e}, e, n, d); }
+ / kw_for _ e:expression (_ n:next_clause)? _ kw_do _ d:unnamed_declaration { $$ = auxil->ast(AST::ForStatement, {$0s, $0e}, e, n, d); }
 
 next_clause
 <- skw_next _ e:assignment_expression { $$ = e; }
@@ -363,7 +366,7 @@ alternative
 alt_name
 <- n:unqualified_id _ ':' !':' { $$ = n; }
 
-identifier <- !keyword L(L/D)* { $$ = auxil->ast(AST::Identifier, {$0s, $0e}); }
+identifier <- &L !keyword L(L/D)* { $$ = auxil->ast(AST::Identifier, {$0s, $0e}); }
 
 numeric_literal
 <- '0'[xX]X[0-9a-fA-F']* (![.pP]) { $$ = auxil->ast(AST::HexInteger, {$0s, $0e}); }
