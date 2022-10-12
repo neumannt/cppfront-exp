@@ -50,6 +50,7 @@ class AST {
         NestedNameSpecifier,
         NestedNameSpecifierList,
         NewExpression,
+        Nullptr,
         OctalInteger,
         ParameterDeclaration,
         ParameterDeclarationList,
@@ -209,10 +210,14 @@ enum ReturnList { Single,
                   Multiple };
 enum UnnamedDeclaration { Function,
                           Value };
-enum UnqualifiedId { Normal,
-                     ConstNormal,
-                     Template,
-                     ConstTemplate };
+enum UnqualifiedId {
+    Normal,
+    ConstNormal,
+    Template,
+    ConstTemplate,
+    FundamentalType,
+    ConstFundamentalType
+};
 enum TemplateArgument { Expression,
                         IdExpression };
 enum TypeModifier { Pointer };

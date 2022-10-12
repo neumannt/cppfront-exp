@@ -16,7 +16,7 @@
 #define PCC_GETCHAR(auxil) auxil->getChar()
 #define RANGE(a,b) auxil->getRange(a,b)
 
-#if 1
+#if 0
 static const char *dbg_str[] = { "Evaluating rule", "Matched rule", "Abandoning rule" };
 #define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) fprintf(stderr, "%*s%s %s @%zu [%.*s]\n", (int)((level) * 2), "", dbg_str[event], rule, pos, (int)(length), buffer)
 #endif
@@ -85,6 +85,8 @@ unqualified_id
  / i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Template, {$0s, $0e}, i); }
  / kw_const _ i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstNormal, {$0s, $0e}, i); }
  / i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Normal, {$0s, $0e}, i); }
+ / kw_const _ t:fundamental_type { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstFundamentalType, {$0s, $0e}, t); }
+ / t:fundamental_type { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::FundamentalType, {$0s, $0e}, t); }
 
 template_id
 <- i:identifier _ '<' _ t:template_argument_list? _ '>' { $$ = auxil->buildList(AST::TemplateId, {$0s, $0e}, t); }
@@ -119,12 +121,10 @@ member_name_specifier
 id_expression
 <- i:qualified_id { $$ = i; }
  / i:unqualified_id { $$ = i; }
- / t:fundamental_type { $$ = t; }
 
 id_expression_after_dot
 <- i:qualified_id_after_dot { $$ = i; }
  / i:unqualified_id { $$ = i; }
- / t:fundamental_type { $$ = t; }
 
 type_id_expression
 <- '*' _ i:id_expression { $$ = auxil->ast2(AST::TypeModifier, ast::TypeModifier::Pointer, {$0s, $0e}, i); }
@@ -293,6 +293,7 @@ postfix_expression
 
 primary_expression
 <- e:literal { $$ = e; }
+ / kw_nullptr { $$ = auxil->ast(AST::Nullptr, {$0s, $0e}); }
  / '(' _ e:expression_list? _ ')' { $$ = auxil->ast(AST::ExpressionListExpression, {$0s, $0e}, e); }
  / e:id_expression_after_dot { $$ = e; }
  / kw_typeid _ '(' _ e:expression _ ')' { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::Typeid, {$0s, $0e}, e); }
@@ -610,7 +611,7 @@ D <- [0-9]
 X <- [0-9a-fA-F]
 L <- [a-zA-Z_]
 
-_ <- ( space / comment )*
+_ <- ( space / comment / preprocessor )*
 comment
 <- '//' ( !(end_of_line / end_of_file) . )* (end_of_line) / (end_of_file)
  / '/*' ( !'*/' . )* '*/'
@@ -620,7 +621,8 @@ blank <- [ \t\v\f]
 end_of_line <- '\r\n' / '\n' / '\r'
 end_of_file <- !.
 
-
+preprocessor
+<- '#' [^\n\r]* [\n\r] { /* TODO */ }
 
 %%
 
