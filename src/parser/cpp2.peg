@@ -248,11 +248,14 @@ relational_expression
  / l:relational_expression _ '>' (!'>') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Greater, {$0s, $0e}, l, r); }
  / e:compare_expression { $$ = e; }
 relational_expression_no_cmp
-<- e:compare_expression { $$ = e; }
+<- e:compare_expression_no_cmp { $$ = e; }
 
 compare_expression
 <- l:compare_expression _ '<=>' _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$0s, $0e}, l, r); }
  / e:shift_expression { $$ = e; }
+compare_expression_no_cmp
+<- l:compare_expression _ '<=>' _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$0s, $0e}, l, r); }
+ / e:additive_expression { $$ = e; }
 
 shift_expression
 <- l:shift_expression _ '<<' _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LeftShift, {$0s, $0e}, l, r); }
