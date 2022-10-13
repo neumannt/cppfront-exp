@@ -294,17 +294,16 @@ postfix_expression
  / e: primary_expression { $$ = e; }
 
 primary_expression
-<- e:literal { $$ = e; }
+<- e:inspect_expression { $$ = e; }
+ / e:id_expression_after_dot { $$ = e; }
+ / e:literal { $$ = e; }
+ / '(' _ e:expression_list? _ ')' { $$ = auxil->ast(AST::ExpressionListExpression, {$0s, $0e}, e); }
+ / e:unnamed_declaration { $$ = e; }
  / kw_nullptr { $$ = auxil->ast2(AST::Literal, ast::Literal::Nullptr, {$0s, $0e}); }
  / kw_true { $$ = auxil->ast2(AST::Literal, ast::Literal::True, {$0s, $0e}); }
  / kw_false { $$ = auxil->ast2(AST::Literal, ast::Literal::False, {$0s, $0e}); }
- / '(' _ e:expression_list? _ ')' { $$ = auxil->ast(AST::ExpressionListExpression, {$0s, $0e}, e); }
- / e:id_expression_after_dot { $$ = e; }
  / kw_typeid _ '(' _ e:expression _ ')' { $$ = auxil->ast2(AST::PrefixExpression, ast::PrefixExpression::Typeid, {$0s, $0e}, e); }
  / kw_new _ '<' t:id_expression _ '>' _ '(' _ l:expression_list? _ ')' { $$ = auxil->ast(AST::NewExpression, {$0s, $0e}, t, l); }
- / e:unnamed_declaration { $$ = e; }
- / e:inspect_expression { $$ = e; }
-
 
 literal
 <- l:numeric_literal { $$ = l; }
