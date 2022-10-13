@@ -5,6 +5,7 @@
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
+#include <string>
 #include <string_view>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
@@ -45,6 +46,14 @@ class RangeMapping {
     SourceLocation getRange(Range range) { return mapPosition(range.to); }
     /// Map a range
     std::pair<SourceLocation, SourceLocation> mapRang(Range range);
+};
+//---------------------------------------------------------------------------
+/// An error description
+struct Error {
+    /// The occurrence in the source
+    SourceLocation loc;
+    /// The text
+    std::string text;
 };
 //---------------------------------------------------------------------------
 }

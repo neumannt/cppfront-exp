@@ -16,5 +16,6 @@ add_executable(cppfront-exp
 	src/parser/Parser.cpp
 	src/parser/Range.cpp
 	src/parser/Source.cpp
+	src/semana/SemanticAnalysis.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/cpp2parser.cpp
 )

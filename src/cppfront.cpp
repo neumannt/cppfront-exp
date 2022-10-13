@@ -1,4 +1,5 @@
 #include "parser/Parser.hpp"
+#include "semana/SemanticAnalysis.hpp"
 #include <iostream>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -19,12 +20,22 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     cpp2exp::Parser parser;
-    if (!parser.parseFile(argv[1])) {
+    const cpp2exp::AST* ast;
+    if (!((ast = parser.parseFile(argv[1])))) {
         printErrors(argv[1], parser.getErrors());
         return 1;
     } else {
         cout << "parsing ok" << endl;
     }
+
+    cpp2exp::SemanticAnalysis semana(parser.getFileName(), parser.getContent());
+    if (!semana.analyze(ast)) {
+        printErrors(parser.getFileName(), semana.getErrors());
+        return 1;
+    } else {
+        cout << "semantic analysis ok" << endl;
+    }
+
     return 0;
 }
 //---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 #include "AST.hpp"
+#include <cassert>
 #include <iostream>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -34,6 +35,33 @@ void* ASTContainer::allocateRaw(unsigned requiredSize)
     auto result = currentBegin;
     currentBegin += requiredSize;
     return result;
+}
+//---------------------------------------------------------------------------
+const AST* AST::get(unsigned element, [[maybe_unused]] Type nodeType) const
+// Access an element and make sure that the node type matches. Accessing a null pointer is an error
+{
+    assert(element < childCount);
+    auto r = children[element];
+    assert(r && r->getType() == nodeType);
+    return r;
+}
+//---------------------------------------------------------------------------
+const AST* AST::getOrNull(unsigned element, [[maybe_unused]] Type nodeType) const
+// Access an element and make sure that the node type matches. A null pointer is valid
+{
+    assert(element < childCount);
+    auto r = children[element];
+    assert((!r) || r->getType() == nodeType);
+    return r;
+}
+//---------------------------------------------------------------------------
+const AST* AST::getAny(unsigned element) const
+// Access an element with enforcing a specific node type
+{
+    assert(element < childCount);
+    auto r = children[element];
+    assert(r);
+    return r;
 }
 //---------------------------------------------------------------------------
 }

@@ -98,6 +98,13 @@ class AST {
 
     /// Get the node type
     Type getType() const { return type; }
+
+    /// Access an element and make sure that the node type matches. Accessing a null pointer is an error
+    const AST* get(unsigned element, Type nodeType) const;
+    /// Access an element and make sure that the node type matches. A null pointer is valid
+    const AST* getOrNull(unsigned element, Type nodeType) const;
+    /// Access an element with enforcing a specific node type
+    const AST* getAny(unsigned element) const;
 };
 //---------------------------------------------------------------------------
 /// Container for managing AST nodes. We use that instead of a simple unique_ptr to avoid stack overflow in deep trees

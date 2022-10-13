@@ -1,24 +1,23 @@
-#ifndef H_Parser
-#define H_Parser
+#ifndef H_SemanticAnalysis
+#define H_SemanticAnalysis
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
-#include "parser/AST.hpp"
+#include "parser/Range.hpp"
+#include <string>
 #include <vector>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-/// A parser
-class Parser {
+class AST;
+//---------------------------------------------------------------------------
+/// Semantic analysis logic
+class SemanticAnalysis {
     private:
-    /// The file name
-    std::string fileName;
-    /// The content
-    std::string content;
-    /// The AST nodes
-    ASTContainer astContainer;
+    /// The mapping logic
+    RangeMapping mapping;
     /// The errors
     std::vector<Error> errors;
 
@@ -30,18 +29,14 @@ class Parser {
 
     public:
     /// Constructor
-    Parser();
+    SemanticAnalysis(std::string_view fileName, std::string_view content);
     /// Destructor
-    ~Parser();
+    ~SemanticAnalysis();
 
-    /// Load the input from a file and parse the file
-    const AST* parseFile(const std::string& fileName);
+    /// Analyze a parse tree
+    bool analyze(const AST* translationUnit);
     /// Get the error list
     auto& getErrors() const { return errors; }
-    /// Get the file name
-    std::string_view getFileName() const { return fileName; }
-    /// Get the content of the translation unit
-    std::string_view getContent() const { return content; }
 };
 //---------------------------------------------------------------------------
 }
