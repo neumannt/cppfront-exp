@@ -64,5 +64,12 @@ const AST* AST::getAny(unsigned element) const
     return r;
 }
 //---------------------------------------------------------------------------
+const AST* AST::getAnyOrNull(unsigned element) const
+// Access an element with enforcing a specific node type
+{
+    assert(element < childCount);
+    return children[element];
+}
+//---------------------------------------------------------------------------
 }
 //---------------------------------------------------------------------------

@@ -98,6 +98,11 @@ class AST {
 
     /// Get the node type
     Type getType() const { return type; }
+    /// Get the sub type as specific enum
+    template <class T>
+    T getSubType() const { return static_cast<T>(subType); }
+    /// Get the range within the source text
+    Range getRange() const { return range; }
 
     /// Access an element and make sure that the node type matches. Accessing a null pointer is an error
     const AST* get(unsigned element, Type nodeType) const;
@@ -105,6 +110,8 @@ class AST {
     const AST* getOrNull(unsigned element, Type nodeType) const;
     /// Access an element with enforcing a specific node type
     const AST* getAny(unsigned element) const;
+    /// Access an element with enforcing a specific node type
+    const AST* getAnyOrNull(unsigned element) const;
 };
 //---------------------------------------------------------------------------
 /// Container for managing AST nodes. We use that instead of a simple unique_ptr to avoid stack overflow in deep trees

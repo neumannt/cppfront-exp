@@ -38,6 +38,9 @@ class RangeMapping {
     /// Constructor
     RangeMapping(std::string_view fileName, std::string_view content) : fileName(fileName), content(content) {}
 
+    /// Get the underlying content
+    std::string_view getContent() const { return content; }
+
     /// Map a position
     SourceLocation mapPosition(unsigned pos);
     /// Get the begin of a range
