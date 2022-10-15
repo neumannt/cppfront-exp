@@ -81,12 +81,8 @@ unnamed_declaration_param
  / ':' !':' _ t:type_id_expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
 
 unqualified_id
-<- kw_const _ i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstTemplate, {$0s, $0e}, i); }
- / i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Template, {$0s, $0e}, i); }
- / kw_const _ i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstNormal, {$0s, $0e}, i); }
+<- i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Template, {$0s, $0e}, i); }
  / i:identifier { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Normal, {$0s, $0e}, i); }
- / kw_const _ t:fundamental_type { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::ConstFundamentalType, {$0s, $0e}, t); }
- / t:fundamental_type { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::FundamentalType, {$0s, $0e}, t); }
 
 template_id
 <- i:identifier _ '<' _ t:template_argument_list? _ '>' { $$ = auxil->buildList(AST::TemplateId, {$0s, $0e}, t); }
@@ -119,8 +115,10 @@ member_name_specifier
 <- i:unqualified_id _ '.' { $$ = i; }
 
 id_expression
-<- i:qualified_id { $$ = i; }
+<- kw_const _ i:id_expression { $$ = auxil->ast2(AST::TypeModifier, ast::TypeModifier::Const, {$0s, $0e}, i); }
+ / i:qualified_id { $$ = i; }
  / i:unqualified_id { $$ = i; }
+ / t:fundamental_type { $$ = t; }
 
 id_expression_after_dot
 <- i:qualified_id_after_dot { $$ = i; }

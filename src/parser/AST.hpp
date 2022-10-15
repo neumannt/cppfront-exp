@@ -231,15 +231,14 @@ enum UnnamedDeclaration { Function,
                           Value };
 enum UnqualifiedId {
     Normal,
-    ConstNormal,
     Template,
-    ConstTemplate,
-    FundamentalType,
-    ConstFundamentalType
 };
 enum TemplateArgument { Expression,
                         IdExpression };
-enum TypeModifier { Pointer };
+enum TypeModifier {
+    Const,
+    Pointer
+};
 enum QualifiedId { Nested,
                    Member };
 //---------------------------------------------------------------------------
