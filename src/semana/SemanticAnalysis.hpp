@@ -13,8 +13,12 @@
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 class AST;
+class Expression;
+class FunctionType;
 class Module;
 class Namespace;
+class Program;
+class Type;
 //---------------------------------------------------------------------------
 /// Semantic analysis logic
 class SemanticAnalysis {
@@ -23,6 +27,8 @@ class SemanticAnalysis {
     RangeMapping mapping;
     /// The errors
     std::vector<Error> errors;
+    /// The program
+    std::unique_ptr<Program> program;
     /// The target
     std::unique_ptr<Module> target;
     /// The current namespace
@@ -38,6 +44,16 @@ class SemanticAnalysis {
     /// Extract an identifier
     std::string_view extractIdentifier(const AST* ast);
 
+    /// Analyze and expression
+    std::unique_ptr<Expression> analyzeExpression(const AST* ast);
+    /// Analyze an id-expression with optional pointer markers
+    const Type* analyzeIdExpression(const AST* ast);
+    /// Analyze an id-expression with optional pointer markers
+    const Type* analyzeTypeIdExpression(const AST* ast);
+    /// Analyze an unnamed declaration
+    bool analyzeUnnamedDeclaration(const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
+    /// Analyze a function type declaration
+    const FunctionType* analyzeFunctionType(const AST* ast, std::vector<std::unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset);
     /// Analyze a declaration
     bool analyzeDeclaration(const AST* declaration);
     /// Analyze a definition (ignore declarations

@@ -1,36 +1,31 @@
-#ifndef H_Namespace
-#define H_Namespace
+#ifndef H_Program
+#define H_Program
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
-#include "program/Declaration.hpp"
 #include <memory>
 #include <unordered_map>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-class Declaration;
+class Type;
 //---------------------------------------------------------------------------
-/// A namespace
-class Namespace {
+/// Container for all program data
+class Program {
     private:
-    /// The name
-    std::string name;
-    /// All declarations within the namespace
-    std::unordered_map<std::string, std::unique_ptr<Declaration>> declarations;
+    /// The type cache
+    std::unordered_multimap<uint64_t, std::unique_ptr<Type>> typeCache;
 
     public:
     /// Constructor
-    Namespace(std::string name);
+    Program();
     /// Destructor
-    ~Namespace();
+    ~Program();
 
-    /// Find a declaration within the namespace
-    Declaration* findDeclaration(std::string_view name);
-    /// Create a new declaration
-    Declaration* addDeclaration(std::string_view name, bool isFunction);
+    /// Access the type cache. Should only be used by type classes for interning
+    auto& getTypeCache() { return typeCache; }
 };
 //---------------------------------------------------------------------------
 }

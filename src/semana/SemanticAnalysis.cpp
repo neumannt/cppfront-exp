@@ -1,8 +1,12 @@
 #include "semana/SemanticAnalysis.hpp"
 #include "parser/AST.hpp"
 #include "program/Declaration.hpp"
+#include "program/Expression.hpp"
+#include "program/FunctionType.hpp"
 #include "program/Module.hpp"
 #include "program/Namespace.hpp"
+#include "program/Program.hpp"
+#include "program/Type.hpp"
 #include <cassert>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -134,6 +138,148 @@ string_view SemanticAnalysis::extractIdentifier(const AST* ast)
     return accessText(ast);
 }
 //---------------------------------------------------------------------------
+std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(const AST* ast)
+// Analyze and expression
+{
+    // TODO
+    addError(ast, "analyzeExpression not implemented yet");
+    return {};
+}
+//---------------------------------------------------------------------------
+const Type* SemanticAnalysis::analyzeIdExpression(const AST* ast)
+// Analyze an id-expression with optional pointer markers
+{
+    // TODO
+    addError(ast, "analyzeIdExpression not implemented yet");
+    return nullptr;
+}
+//---------------------------------------------------------------------------
+const Type* SemanticAnalysis::analyzeTypeIdExpression(const AST* ast)
+// Analyze an id-expression with optional pointer markers
+{
+    if (ast->getType() == AST::TypeModifier) {
+        switch (ast->getSubType<ast::TypeModifier>()) {
+            case ast::TypeModifier::Pointer: {
+                auto t = analyzeTypeIdExpression(ast->getAny(0));
+                return t ? t->getPointerTo() : nullptr;
+            }
+        }
+        return nullptr;
+    } else {
+        return analyzeIdExpression(ast);
+    }
+}
+//---------------------------------------------------------------------------
+bool SemanticAnalysis::analyzeUnnamedDeclaration(const AST* ast, const Type** type, unique_ptr<Expression>* value)
+// Analyze an unnamed declaration
+{
+    auto statement = ast->getAny(1);
+    if (ast->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function) {
+        // TODO
+        addError(ast, "nested function declarations not supported yet");
+        return false;
+    } else {
+        *type = nullptr;
+        if (ast->getAny(0)) {
+            if (!((*type = analyzeTypeIdExpression(ast->getAny(0)))))
+                return false;
+        } else if (!statement) {
+            addError(ast, "a deduced type must have an = initializer");
+            return false;
+        }
+        value->reset();
+        if (statement) {
+            if (statement->getType() != AST::ExpressionStatement) {
+                addError(statement, "invalid initializer");
+                return false;
+            }
+            if (!((*value = analyzeExpression(statement->getAny(0)))))
+                return false;
+        }
+    }
+    return true;
+}
+//---------------------------------------------------------------------------
+const FunctionType* SemanticAnalysis::analyzeFunctionType(const AST* ast, vector<unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset)
+// Analyze a function type declaration
+{
+    auto parameterList = ast->get(0, AST::ParameterDeclarationList);
+    bool throwsSpecifier = ast->getAnyOrNull(1);
+    auto returnList = ast->getOrNull(2, AST::ReturnList);
+    auto contractList = ast->getOrNull(3, AST::ContractSeq);
+
+    // Inspect all parameters
+    vector<FunctionType::Parameter> parameter;
+    if (defaultArguments) {
+        defaultArguments->clear();
+        *defaultArgumentsOffset = 0;
+    }
+    unsigned slot = 0;
+    for (auto p : List<AST::ParameterDeclaration>(parameterList->getOrNull(0, AST::ParameterDeclarationSeq))) {
+        FunctionType::Parameter pa;
+        if (p->getAny(0)) {
+            switch (p->getSubType<ast::ParameterDirection>()) {
+                case ast::ParameterDirection::In: pa.direction = FunctionType::ParameterDirection::In; break;
+                case ast::ParameterDirection::Out: pa.direction = FunctionType::ParameterDirection::Out; break;
+                case ast::ParameterDirection::Inout: pa.direction = FunctionType::ParameterDirection::Inout; break;
+                case ast::ParameterDirection::Copy: pa.direction = FunctionType::ParameterDirection::Copy; break;
+                case ast::ParameterDirection::Move: pa.direction = FunctionType::ParameterDirection::Move; break;
+                case ast::ParameterDirection::Forward: pa.direction = FunctionType::ParameterDirection::Forward; break;
+            }
+        }
+        auto d = p->get(1, AST::Declaration);
+        pa.name = extractIdentifier(d->getAny(0));
+        unique_ptr<Expression> defaultArgument;
+        if (!analyzeUnnamedDeclaration(d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
+        if (defaultArguments) {
+            if (defaultArgument) {
+                if (defaultArguments->empty()) *defaultArgumentsOffset = slot;
+                defaultArguments->push_back(move(defaultArgument));
+            } else if (!defaultArguments->empty()) {
+                addError(p, "default argument missing");
+            }
+        }
+        ++slot;
+    }
+
+    // Handle the return type
+    vector<pair<string, const Type*>> returnTypes;
+    if (returnList) {
+        if (returnList->getSubType<ast::ReturnList>() == ast::ReturnList::Single) {
+            auto rt = analyzeIdExpression(returnList->getAny(0));
+            if (!rt) return nullptr;
+            returnTypes.emplace_back(""sv, rt);
+        } else {
+            auto pdl = returnList->get(0, AST::ParameterDeclarationList);
+            for (auto r : List<AST::ParameterDeclaration>(pdl->getOrNull(0, AST::ParameterDeclarationSeq))) {
+                if (r->getAny(0)) {
+                    addError(r->getAny(0), "direction modifier not allowed in return list");
+                    return nullptr;
+                }
+                auto d = ast->get(1, AST::Declaration);
+                auto name = extractIdentifier(d->getAny(0));
+                const Type* type;
+                unique_ptr<Expression> defaultArgument;
+                if (!analyzeUnnamedDeclaration(d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument)) return nullptr;
+                if (defaultArgument) {
+                    addError(d, "return value cannot have default values");
+                    return nullptr;
+                }
+                returnTypes.emplace_back(name, type);
+            }
+        }
+    }
+
+    // Contracts are not supported yet
+    if (contractList) {
+        // TODO
+        addError(contractList, "contracts not implemented yet");
+        return nullptr;
+    }
+
+    return FunctionType::get(*program, move(parameter), move(returnTypes), throwsSpecifier);
+}
+//---------------------------------------------------------------------------
 bool SemanticAnalysis::analyzeDeclaration(const AST* declaration)
 // Analyze a declaration
 {
@@ -153,7 +299,17 @@ bool SemanticAnalysis::analyzeDeclaration(const AST* declaration)
 
     // Analyze the signature
     if (isFunction) {
-        auto type = details->get(0, AST::FunctionType);
+        vector<unique_ptr<Expression>> defaultArguments;
+        unsigned defaultArgumentsOffset;
+        auto funcType = analyzeFunctionType(details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset);
+        if (!funcType) return false;
+        auto existing = decl->findFunctionOverload(funcType);
+        if (existing) {
+            if (existing->type == funcType)
+                return addError(declaration, "function overload with that signature already exists");
+            return addError(declaration, "function overload with ambiguous signature already exists");
+        }
+        decl->addFunctionOverload(funcType, move(defaultArguments), defaultArgumentsOffset);
     }
 
     return true;
@@ -166,10 +322,17 @@ bool SemanticAnalysis::analyzeDefinition(const AST* declaration)
     auto details = declaration->get(1, AST::UnnamedDeclaration);
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
 
-    // Declaration only?
-    if (!details->getAnyOrNull(1)) return true;
-
     auto decl = currentNamespace->findDeclaration(name);
+    if (isFunction) {
+        auto funcType = analyzeFunctionType(details->get(0, AST::FunctionType), nullptr, nullptr);
+        auto overload = decl->findFunctionOverload(funcType);
+    } else {
+        // Declaration only?
+        if (!details->getAnyOrNull(1))
+            return addError(declaration, "a global declaration must be initialized");
+
+        // TODO
+    }
 
     return true;
 }

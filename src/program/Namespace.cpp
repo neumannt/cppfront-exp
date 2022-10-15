@@ -21,13 +21,16 @@ Declaration* Namespace::findDeclaration(std::string_view name)
 {
     auto iter = declarations.find(string(name));
     if (iter == declarations.end()) return nullptr;
-    return &(iter->second);
+    return iter->second.get();
 }
 //---------------------------------------------------------------------------
 Declaration* Namespace::addDeclaration(std::string_view name, bool isFunction)
 // Create a new declaration
 {
-    return &(declarations.emplace(name, Declaration(string(name), isFunction)).first->second);
+    auto n = make_unique<Declaration>(string(name), isFunction);
+    auto d = n.get();
+    declarations.emplace(name, move(n));
+    return d;
 }
 //---------------------------------------------------------------------------
 }
