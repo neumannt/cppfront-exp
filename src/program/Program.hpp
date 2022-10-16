@@ -15,8 +15,15 @@ class Type;
 /// Container for all program data
 class Program {
     private:
+    /// Maximum number of fundamental types
+    static constexpr unsigned fundamentalTypeCount = 20;
+
     /// The type cache
     std::unordered_multimap<uint64_t, std::unique_ptr<Type>> typeCache;
+    /// The cached fundamental types
+    std::array<std::unique_ptr<Type>, fundamentalTypeCount> fundamentalTypes;
+
+    friend class Type;
 
     public:
     /// Constructor

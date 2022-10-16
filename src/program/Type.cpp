@@ -21,6 +21,30 @@ Type::~Type()
 {
 }
 //---------------------------------------------------------------------------
+/// A fundamental type
+class FundamentalType : public Type {
+    /// The underlying type
+    FundamentalTypeId id;
+
+    public:
+    /// Constructor
+    FundamentalType(Program* program, FundamentalTypeId id) : Type(program), id(id) {}
+
+    /// Get the category
+    Category getCategory() const override { return Category::Fundamental; }
+};
+//---------------------------------------------------------------------------
+const Type* Type::getFundamentalType(Program& program, FundamentalTypeId id)
+// Get a fundamental type
+{
+    // Cache the fundamental types in the program
+    static_assert(Program::fundamentalTypeCount > static_cast<unsigned>(FundamentalTypeId::LongDouble));
+    unsigned slot = static_cast<unsigned>(id);
+    if (!program.fundamentalTypes[slot])
+        program.fundamentalTypes[slot] = make_unique<FundamentalType>(&program, id);
+    return program.fundamentalTypes[slot].get();
+}
+//---------------------------------------------------------------------------
 bool Type::isEquivalentTo(const Type* o) const
 // Check if two types are equivalent. This resolves typedefs if needed
 {

@@ -101,7 +101,7 @@ class List {
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::SemanticAnalysis(string_view fileName, string_view content)
-    : mapping(fileName, content), target(make_unique<Module>())
+    : mapping(fileName, content), program(make_unique<Program>()), target(make_unique<Module>())
 // Constructor
 {
 }
@@ -149,9 +149,96 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(const AST* ast)
 const Type* SemanticAnalysis::analyzeIdExpression(const AST* ast)
 // Analyze an id-expression with optional pointer markers
 {
-    // TODO
-    addError(ast, "analyzeIdExpression not implemented yet");
-    return nullptr;
+    // Handle const
+    bool isConst = false;
+    if ((ast->getType() == AST::TypeModifier) && (ast->getSubType<ast::TypeModifier>() == ast::TypeModifier::Const)) {
+        isConst = true;
+        ast = ast->getAny(0);
+    }
+    if ((ast->getType() == AST::TypeModifier) && (ast->getSubType<ast::TypeModifier>() == ast::TypeModifier::Const) && isConst) {
+        addError(ast, "const qualifier most only appear once");
+        return nullptr;
+    }
+
+    // Interpret the type
+    switch (ast->getType()) {
+        case AST::UnqualifiedId: addError(ast, "analyzeIdExpression of unqualified_id not implemented yet"); return nullptr; // TODO
+        case AST::QualifiedId: addError(ast, "analyzeIdExpression of qualified_id not implemented yet"); return nullptr; // TODO
+        case AST::FundamentalType: {
+            switch (ast->getSubType<ast::FundamentalType>()) {
+                case ast::FundamentalType::Void: return Type::getVoid(*program);
+                case ast::FundamentalType::Char: {
+                    // char can be modified by signed and unsigned
+                    bool isSigned = false, isUnsigned = false;
+                    for (auto m : List<AST::FundamentalTypeModifier>(ast->getOrNull(0, AST::FundamentalTypeModifierList))) {
+                        if (isSigned || isUnsigned) {
+                            addError(m, "invalid type modifier");
+                            return nullptr;
+                        }
+                        switch (m->getSubType<ast::FundamentalTypeModifier>()) {
+                            case ast::FundamentalTypeModifier::Signed: isSigned = true; break;
+                            case ast::FundamentalTypeModifier::Unsigned: isUnsigned = true; break;
+                            case ast::FundamentalTypeModifier::Long: addError(m, "'long' is not valid for char types"); return nullptr;
+                            case ast::FundamentalTypeModifier::Short: addError(m, "'short' is not valid for char types"); return nullptr;
+                        }
+                    }
+                    // by default we assume char is signed. Should we make this platform specific? Could also be handled when writing C++1 out
+                    return isUnsigned ? Type::getUnsignedChar(*program) : Type::getChar(*program);
+                }
+                case ast::FundamentalType::Char8: return Type::getChar8(*program);
+                case ast::FundamentalType::Char16: return Type::getChar16(*program);
+                case ast::FundamentalType::Char32: return Type::getChar32(*program);
+                case ast::FundamentalType::WChar: return Type::getWChar(*program);
+                case ast::FundamentalType::Bool: return Type::getBool(*program);
+                case ast::FundamentalType::Float: return Type::getFloat(*program);
+                case ast::FundamentalType::Double: return Type::getDouble(*program);
+                case ast::FundamentalType::LongDouble: return Type::getLongDouble(*program);
+                case ast::FundamentalType::Int: {
+                    // Int can be modified by short/long/long long/signed/unsigned, in any order
+                    bool isSigned = false, isUnsigned = false;
+                    bool isShort = false;
+                    unsigned isLong = 0;
+                    auto invalidModifier = [this](const AST* ast) {
+                        addError(ast, "invalid type modifier");
+                        return nullptr;
+                    };
+                    for (auto m : List<AST::FundamentalTypeModifier>(ast->getOrNull(0, AST::FundamentalTypeModifierList))) {
+                        switch (m->getSubType<ast::FundamentalTypeModifier>()) {
+                            case ast::FundamentalTypeModifier::Signed:
+                                if (isSigned || isUnsigned) return invalidModifier(m);
+                                isSigned = true;
+                                break;
+                            case ast::FundamentalTypeModifier::Unsigned:
+                                if (isSigned || isUnsigned) return invalidModifier(m);
+                                isUnsigned = true;
+                                break;
+                            case ast::FundamentalTypeModifier::Long:
+                                if (isShort || (isLong > 1)) return invalidModifier(m);
+                                ++isLong;
+                                return nullptr;
+                            case ast::FundamentalTypeModifier::Short:
+                                if (isShort || isLong) return invalidModifier(m);
+                                isShort = true;
+                                return nullptr;
+                        }
+                    }
+                    if (isUnsigned) {
+                        if (isShort) return Type::getUnsignedShort(*program);
+                        if (isLong > 1) return Type::getUnsignedLongLong(*program);
+                        if (isLong) return Type::getUnsignedLong(*program);
+                        return Type::getUnsignedInt(*program);
+                    } else {
+                        if (isShort) return Type::getShort(*program);
+                        if (isLong > 1) return Type::getLongLong(*program);
+                        if (isLong) return Type::getLong(*program);
+                        return Type::getInt(*program);
+                    }
+                }
+            }
+            return nullptr;
+        }
+        default: addError(ast, "invalid AST"); return nullptr;
+    }
 }
 //---------------------------------------------------------------------------
 const Type* SemanticAnalysis::analyzeTypeIdExpression(const AST* ast)
@@ -163,6 +250,8 @@ const Type* SemanticAnalysis::analyzeTypeIdExpression(const AST* ast)
                 auto t = analyzeTypeIdExpression(ast->getAny(0));
                 return t ? t->getPointerTo() : nullptr;
             }
+            case ast::TypeModifier::Const:
+                return analyzeIdExpression(ast);
         }
         return nullptr;
     } else {
@@ -173,7 +262,7 @@ const Type* SemanticAnalysis::analyzeTypeIdExpression(const AST* ast)
 bool SemanticAnalysis::analyzeUnnamedDeclaration(const AST* ast, const Type** type, unique_ptr<Expression>* value)
 // Analyze an unnamed declaration
 {
-    auto statement = ast->getAny(1);
+    auto statement = ast->getAnyOrNull(1);
     if (ast->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function) {
         // TODO
         addError(ast, "nested function declarations not supported yet");
@@ -217,8 +306,8 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(const AST* ast, vector
     unsigned slot = 0;
     for (auto p : List<AST::ParameterDeclaration>(parameterList->getOrNull(0, AST::ParameterDeclarationSeq))) {
         FunctionType::Parameter pa;
-        if (p->getAny(0)) {
-            switch (p->getSubType<ast::ParameterDirection>()) {
+        if (auto d = p->getOrNull(0, AST::ParameterDirection)) {
+            switch (d->getSubType<ast::ParameterDirection>()) {
                 case ast::ParameterDirection::In: pa.direction = FunctionType::ParameterDirection::In; break;
                 case ast::ParameterDirection::Out: pa.direction = FunctionType::ParameterDirection::Out; break;
                 case ast::ParameterDirection::Inout: pa.direction = FunctionType::ParameterDirection::Inout; break;
