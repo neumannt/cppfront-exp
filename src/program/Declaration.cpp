@@ -1,6 +1,7 @@
 #include "program/Declaration.hpp"
 #include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
+#include "program/Statement.hpp"
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann

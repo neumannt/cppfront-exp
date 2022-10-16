@@ -62,7 +62,13 @@ class Type {
     virtual Category getCategory() const = 0;
     /// Is a function type?
     bool isFunctionType() const { return getCategory() == Category::Function; }
+    /// Is a function type?
+    bool isFundamentalType() const { return getCategory() == Category::Fundamental; }
+    /// Is a function type?
+    bool isPointerType() const { return getCategory() == Category::Pointer; }
 
+    /// Get the effective type. Resolves typedefs if needed
+    const Type* getEffectiveType() const;
     /// Check if two types are equivalent. This resolves typedefs if needed
     bool isEquivalentTo(const Type* o) const;
     /// Get a pointer to the current type
@@ -106,6 +112,36 @@ class Type {
     static const Type* getDouble(Program& program) { return getFundamentalType(program, FundamentalTypeId::Double); }
     /// Get a type representation for 'long double'
     static const Type* getLongDouble(Program& program) { return getFundamentalType(program, FundamentalTypeId::LongDouble); }
+};
+//---------------------------------------------------------------------------
+/// A fundamental type
+class FundamentalType : public Type {
+    /// The underlying type
+    FundamentalTypeId id;
+
+    public:
+    /// Constructor
+    FundamentalType(Program* program, FundamentalTypeId id) : Type(program), id(id) {}
+
+    /// Get the category
+    Category getCategory() const override { return Category::Fundamental; }
+    /// Get the underlying type
+    FundamentalTypeId getId() const { return id; }
+};
+//---------------------------------------------------------------------------
+/// A pointer type
+class PointerType : public Type {
+    /// The element type
+    const Type* elementType;
+
+    public:
+    /// Constructor
+    PointerType(Program* program, const Type* elementType) : Type(program), elementType(elementType) {}
+
+    /// Get the category
+    Category getCategory() const override { return Category::Pointer; }
+    /// Get the element type
+    const Type* getElementType() const { return elementType; }
 };
 //---------------------------------------------------------------------------
 }

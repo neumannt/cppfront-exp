@@ -22,7 +22,11 @@ add_executable(cppfront-exp
 	src/program/Module.cpp
 	src/program/Namespace.cpp
 	src/program/Program.cpp
+	src/program/Statement.cpp
 	src/program/Type.cpp
+	src/semana/Scope.cpp
 	src/semana/SemanticAnalysis.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/cpp2parser.cpp
 )
+
+target_compile_options(cppfront-exp PRIVATE -Werror -Wall -Wextra)

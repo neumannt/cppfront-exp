@@ -62,7 +62,7 @@ class AST {
         QualifiedId,
         ReturnList,
         ReturnStatement,
-        SelectStatement,
+        SelectionStatement,
         StatementSeq,
         StringLiteral,
         TemplateArgument,

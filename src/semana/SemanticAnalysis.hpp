@@ -18,6 +18,8 @@ class FunctionType;
 class Module;
 class Namespace;
 class Program;
+class Statement;
+class Scope;
 class Type;
 //---------------------------------------------------------------------------
 /// Semantic analysis logic
@@ -31,8 +33,6 @@ class SemanticAnalysis {
     std::unique_ptr<Program> program;
     /// The target
     std::unique_ptr<Module> target;
-    /// The current namespace
-    Namespace* currentNamespace;
 
     /// Store an error message
     void addError(SourceLocation loc, std::string text);
@@ -43,21 +43,29 @@ class SemanticAnalysis {
     std::string_view accessText(const AST* ast);
     /// Extract an identifier
     std::string_view extractIdentifier(const AST* ast);
+    /// Make sure an expression is convertible into a certain type
+    bool enforceConvertible(std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
 
-    /// Analyze and expression
-    std::unique_ptr<Expression> analyzeExpression(const AST* ast);
+    /// Analyze an expression
+    std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);
+    /// Analyze a compound statement
+    std::unique_ptr<Statement> analyzeCompoundStatement(Scope& scope, const AST* ast);
+    /// Analyze a return statement
+    std::unique_ptr<Statement> analyzeReturnStatement(Scope& scope, const AST* ast);
+    /// Analyze a statement
+    std::unique_ptr<Statement> analyzeStatement(Scope& scope, const AST* ast);
     /// Analyze an id-expression with optional pointer markers
     const Type* analyzeIdExpression(const AST* ast);
     /// Analyze an id-expression with optional pointer markers
     const Type* analyzeTypeIdExpression(const AST* ast);
     /// Analyze an unnamed declaration
-    bool analyzeUnnamedDeclaration(const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
+    bool analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
     /// Analyze a function type declaration
-    const FunctionType* analyzeFunctionType(const AST* ast, std::vector<std::unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset);
+    const FunctionType* analyzeFunctionType(Scope& scope, const AST* ast, std::vector<std::unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset);
     /// Analyze a declaration
-    bool analyzeDeclaration(const AST* declaration);
+    bool analyzeDeclaration(Scope& scope, const AST* declaration);
     /// Analyze a definition (ignore declarations
-    bool analyzeDefinition(const AST* definition);
+    bool analyzeDefinition(Scope& scope, const AST* definition);
 
     public:
     /// Constructor

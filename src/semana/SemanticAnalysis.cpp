@@ -6,7 +6,9 @@
 #include "program/Module.hpp"
 #include "program/Namespace.hpp"
 #include "program/Program.hpp"
+#include "program/Statement.hpp"
 #include "program/Type.hpp"
+#include "semana/Scope.hpp"
 #include <cassert>
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -138,12 +140,106 @@ string_view SemanticAnalysis::extractIdentifier(const AST* ast)
     return accessText(ast);
 }
 //---------------------------------------------------------------------------
-std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(const AST* ast)
-// Analyze and expression
+bool SemanticAnalysis::enforceConvertible(std::unique_ptr<Expression>& exp, const Type* target, [[maybe_unused]] bool explicitScope)
+// Make sure an expression is convertible into a certain type
+{
+    auto ta = exp->getType()->getEffectiveType();
+    auto tb = target->getEffectiveType();
+
+    // Trivial conversion?
+    if (ta == tb) return true;
+
+    // Standard conversions
+    if (tb->isPointerType()) {
+        // TODO handle const
+    } else if (tb->isFundamentalType()) {
+        auto ib = static_cast<const FundamentalType*>(tb)->getId();
+        if (ib == Type::FundamentalTypeId::Bool) {
+            if (ta->isPointerType()) return true;
+        }
+        if (ta->isFundamentalType()) {
+            auto ia = static_cast<const FundamentalType*>(ta)->getId();
+            // So far all conversions are valid as long both are not void
+            return (ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void);
+        }
+    }
+
+    // TODO Check user defined conversions
+    return false;
+}
+//---------------------------------------------------------------------------
+std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression([[maybe_unused]] Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
+// Analyze an expression
 {
     // TODO
     addError(ast, "analyzeExpression not implemented yet");
     return {};
+}
+//---------------------------------------------------------------------------
+unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
+// Analyze a compound statement
+{
+    auto begin = mapping.getBegin(ast->getRange());
+    Scope innerScope(scope);
+    vector<unique_ptr<Statement>> statements;
+    for (auto s : ASTList(ast->getAnyOrNull(0))) {
+        statements.push_back(analyzeStatement(innerScope, s));
+        if (!statements.back()) return {};
+    }
+    auto end = mapping.getEnd(ast->getRange());
+
+    return make_unique<CompoundStatement>(begin, end, move(statements));
+}
+//---------------------------------------------------------------------------
+unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, const AST* ast)
+// Analyze a compound statement
+{
+    auto fs = scope.getCurrentFunction();
+    if (!fs) {
+        addError(ast, "return statements are only allowed within functions");
+        return {};
+    }
+    auto ft = fs->functionType;
+    auto begin = mapping.getBegin(ast->getRange());
+    unique_ptr<Expression> arg;
+    if (ft->returnValues.empty()) {
+        if (ast->getAny(0)) {
+            addError(ast, "cannot return a value in function returning void");
+            return {};
+        }
+    } else if ((ft->returnValues.size() == 1) && (ft->returnValues[0].first.empty())) {
+        if (!ast->getAny(0)) {
+            addError(ast, "cannot return a value in function returning void");
+            return {};
+        }
+        arg = analyzeExpression(scope, ast->getAny(0), ft->returnValues[0].second);
+        if ((!arg) || (!enforceConvertible(arg, ft->returnValues[0].second))) return {};
+    } else {
+        // TODO check that return values have been assigned
+        if (ast->getAny(0)) {
+            addError(ast, "return values are passed via named in this function");
+            return {};
+        }
+    }
+
+    return make_unique<ReturnStatement>(begin, move(arg));
+}
+//---------------------------------------------------------------------------
+std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, const AST* ast)
+// Analyze a statement
+{
+    switch (ast->getType()) {
+        case AST::DeclarationStatement: addError(ast, "declaration_statement not implemented yet"); return {}; // TODO
+        case AST::CompoundStatement: return analyzeCompoundStatement(scope, ast);
+        case AST::ReturnStatement: return analyzeReturnStatement(scope, ast);
+        case AST::SelectionStatement: addError(ast, "selection_statement not implemented yet"); return {}; // TODO
+        case AST::WhileStatement: addError(ast, "while_statement not implemented yet"); return {}; // TODO
+        case AST::DoWhileStatement: addError(ast, "do_while_statement not implemented yet"); return {}; // TODO
+        case AST::ForStatement: addError(ast, "for_statement not implemented yet"); return {}; // TODO
+        case AST::InspectExpression: addError(ast, "inspect_statment not implemented yet"); return {}; // TODO
+        case AST::ExpressionStatement: addError(ast, "expression_statement not implemented yet"); return {}; // TODO
+        default: addError(ast, "invalid AST"); return {};
+    }
 }
 //---------------------------------------------------------------------------
 const Type* SemanticAnalysis::analyzeIdExpression(const AST* ast)
@@ -259,7 +355,7 @@ const Type* SemanticAnalysis::analyzeTypeIdExpression(const AST* ast)
     }
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeUnnamedDeclaration(const AST* ast, const Type** type, unique_ptr<Expression>* value)
+bool SemanticAnalysis::analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, unique_ptr<Expression>* value)
 // Analyze an unnamed declaration
 {
     auto statement = ast->getAnyOrNull(1);
@@ -282,14 +378,14 @@ bool SemanticAnalysis::analyzeUnnamedDeclaration(const AST* ast, const Type** ty
                 addError(statement, "invalid initializer");
                 return false;
             }
-            if (!((*value = analyzeExpression(statement->getAny(0)))))
+            if (!((*value = analyzeExpression(scope, statement->getAny(0)))))
                 return false;
         }
     }
     return true;
 }
 //---------------------------------------------------------------------------
-const FunctionType* SemanticAnalysis::analyzeFunctionType(const AST* ast, vector<unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset)
+const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AST* ast, vector<unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset)
 // Analyze a function type declaration
 {
     auto parameterList = ast->get(0, AST::ParameterDeclarationList);
@@ -319,7 +415,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(const AST* ast, vector
         auto d = p->get(1, AST::Declaration);
         pa.name = extractIdentifier(d->getAny(0));
         unique_ptr<Expression> defaultArgument;
-        if (!analyzeUnnamedDeclaration(d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
+        if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
         if (defaultArguments) {
             if (defaultArgument) {
                 if (defaultArguments->empty()) *defaultArgumentsOffset = slot;
@@ -349,7 +445,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(const AST* ast, vector
                 auto name = extractIdentifier(d->getAny(0));
                 const Type* type;
                 unique_ptr<Expression> defaultArgument;
-                if (!analyzeUnnamedDeclaration(d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument)) return nullptr;
+                if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument)) return nullptr;
                 if (defaultArgument) {
                     addError(d, "return value cannot have default values");
                     return nullptr;
@@ -369,7 +465,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(const AST* ast, vector
     return FunctionType::get(*program, move(parameter), move(returnTypes), throwsSpecifier);
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeDeclaration(const AST* declaration)
+bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
 // Analyze a declaration
 {
     auto name = extractIdentifier(declaration->get(0, AST::Identifier));
@@ -377,20 +473,20 @@ bool SemanticAnalysis::analyzeDeclaration(const AST* declaration)
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
 
     // Check if the declaration already exists
-    auto decl = currentNamespace->findDeclaration(name);
+    auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (decl) {
         // That is only permissive for functions
         if ((!isFunction) || (!decl->isFunction()))
             return addError(declaration, "duplicate definition");
     } else {
-        decl = currentNamespace->addDeclaration(name, isFunction);
+        decl = scope.getCurrentNamespace()->addDeclaration(name, isFunction);
     }
 
     // Analyze the signature
     if (isFunction) {
         vector<unique_ptr<Expression>> defaultArguments;
         unsigned defaultArgumentsOffset;
-        auto funcType = analyzeFunctionType(details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset);
+        auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset);
         if (!funcType) return false;
         auto existing = decl->findFunctionOverload(funcType);
         if (existing) {
@@ -404,23 +500,30 @@ bool SemanticAnalysis::analyzeDeclaration(const AST* declaration)
     return true;
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeDefinition(const AST* declaration)
+bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 // Analyze a definition
 {
     auto name = extractIdentifier(declaration->get(0, AST::Identifier));
     auto details = declaration->get(1, AST::UnnamedDeclaration);
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
 
-    auto decl = currentNamespace->findDeclaration(name);
+    auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (isFunction) {
-        auto funcType = analyzeFunctionType(details->get(0, AST::FunctionType), nullptr, nullptr);
+        auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr);
         auto overload = decl->findFunctionOverload(funcType);
+
+        FunctionScope fs(overload->type);
+        Scope innerScope(scope);
+        innerScope.setCurrentFunction(&fs);
+        overload->statement = analyzeStatement(innerScope, details->getAny(1));
+        return !!(overload->statement);
     } else {
         // Declaration only?
         if (!details->getAnyOrNull(1))
             return addError(declaration, "a global declaration must be initialized");
 
         // TODO
+        addError(declaration, "variable declarations not implemented yet");
     }
 
     return true;
@@ -432,16 +535,18 @@ bool SemanticAnalysis::analyze(const AST* translationUnit)
     assert(translationUnit && translationUnit->getType() == AST::TranslationUnit);
     auto declarations = translationUnit->getOrNull(0, AST::DeclarationSeq);
 
-    currentNamespace = target->getGlobalNamespace();
+    ScopeRoot scopeRoot;
+    Scope scope(scopeRoot);
+    scope.setCurrentNamespace(target->getGlobalNamespace());
 
     // Process all declarations
     for (auto d : ASTList(declarations))
-        if (!analyzeDeclaration(d))
+        if (!analyzeDeclaration(scope, d))
             return false;
 
     // Now process all definitions
     for (auto d : ASTList(declarations))
-        if (!analyzeDefinition(d))
+        if (!analyzeDefinition(scope, d))
             return false;
 
     return true;

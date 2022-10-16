@@ -46,7 +46,7 @@ class RangeMapping {
     /// Get the begin of a range
     SourceLocation getBegin(Range range) { return mapPosition(range.from); }
     /// Get the end of a range
-    SourceLocation getRange(Range range) { return mapPosition(range.to); }
+    SourceLocation getEnd(Range range) { return mapPosition(range.to); }
     /// Map a range
     std::pair<SourceLocation, SourceLocation> mapRang(Range range);
 };

@@ -12,6 +12,7 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 class Expression;
 class FunctionType;
+class Statement;
 //---------------------------------------------------------------------------
 /// A declaration within a namespace
 class Declaration {
@@ -24,6 +25,8 @@ class Declaration {
         std::vector<std::unique_ptr<Expression>> defaultArguments;
         /// The start of the default values
         unsigned defaultArgumentsOffset;
+        /// The body
+        std::unique_ptr<Statement> statement;
     };
 
     private:

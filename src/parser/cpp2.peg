@@ -16,6 +16,10 @@
 #define PCC_GETCHAR(auxil) auxil->getChar()
 #define RANGE(a,b) auxil->getRange(a,b)
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+
 #if 0
 static const char *dbg_str[] = { "Evaluating rule", "Matched rule", "Abandoning rule" };
 #define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) fprintf(stderr, "%*s%s %s @%zu [%.*s]\n", (int)((level) * 2), "", dbg_str[event], rule, pos, (int)(length), buffer)
@@ -337,8 +341,8 @@ statement_seq
  / e:statement ~{ auxil->reportError("invalid statement", {$0s, $0e}); }
 
 selection_statement
-<- kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, e, t); }
- / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement { $$ = auxil->ast(AST::SelectStatement, {$0s, $0e}, s, c, t, nullptr); }
+<- kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectionStatement, {$0s, $0e}, s, c, e, t); }
+ / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement { $$ = auxil->ast(AST::SelectionStatement, {$0s, $0e}, s, c, t, nullptr); }
  ## error handling
  / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement ~{ auxil->reportError("invalid if-else statement", {$0s, $0e}); }
  / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement ~{ auxil->reportError("invalid if statement", {$0s, $0e}); }

@@ -21,19 +21,6 @@ Type::~Type()
 {
 }
 //---------------------------------------------------------------------------
-/// A fundamental type
-class FundamentalType : public Type {
-    /// The underlying type
-    FundamentalTypeId id;
-
-    public:
-    /// Constructor
-    FundamentalType(Program* program, FundamentalTypeId id) : Type(program), id(id) {}
-
-    /// Get the category
-    Category getCategory() const override { return Category::Fundamental; }
-};
-//---------------------------------------------------------------------------
 const Type* Type::getFundamentalType(Program& program, FundamentalTypeId id)
 // Get a fundamental type
 {
@@ -45,27 +32,18 @@ const Type* Type::getFundamentalType(Program& program, FundamentalTypeId id)
     return program.fundamentalTypes[slot].get();
 }
 //---------------------------------------------------------------------------
-bool Type::isEquivalentTo(const Type* o) const
+const Type* Type::getEffectiveType() const
 // Check if two types are equivalent. This resolves typedefs if needed
 {
     // TODO handle typedefs
-    return this == o;
+    return this;
 }
 //---------------------------------------------------------------------------
-/// A pointer type
-class PointerType : public Type {
-    /// The element type
-    const Type* elementType;
-
-    public:
-    /// Constructor
-    PointerType(Program* program, const Type* elementType) : Type(program), elementType(elementType) {}
-
-    /// Get the category
-    Category getCategory() const override { return Category::Pointer; }
-    /// Get the element type
-    const Type* getElementType() const { return elementType; }
-};
+bool Type::isEquivalentTo(const Type* o) const
+// Check if two types are equivalent. This resolves typedefs if needed
+{
+    return (o == this) || (getEffectiveType() == o->getEffectiveType());
+}
 //---------------------------------------------------------------------------
 const Type* Type::getPointerTo() const
 // Get a pointer to the current type

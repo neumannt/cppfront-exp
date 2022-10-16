@@ -1,22 +1,33 @@
-#ifndef H_Expression
-#define H_Expression
+#include "program/Statement.hpp"
+#include "program/Expression.hpp"
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
+using namespace std;
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-class Type;
+Statement::Statement()
+// Constructor
+{
+}
 //---------------------------------------------------------------------------
-/// Base class for all expressions
-class Expression {
-    public:
-    /// Get the result type
-    virtual const Type* getType() const = 0;
-};
+Statement::~Statement()
+// Destructor
+{
+}
+//---------------------------------------------------------------------------
+CompoundStatement::~CompoundStatement()
+// Destructor
+{
+}
+//---------------------------------------------------------------------------
+ReturnStatement::~ReturnStatement()
+// Destructor
+{
+}
 //---------------------------------------------------------------------------
 }
 //---------------------------------------------------------------------------
-#endif
