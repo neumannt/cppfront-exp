@@ -44,7 +44,7 @@ class SemanticAnalysis {
     /// Extract an identifier
     std::string_view extractIdentifier(const AST* ast);
     /// Make sure an expression is convertible into a certain type
-    bool enforceConvertible(std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
+    bool enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
 
     /// Analyze an expression
     std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);

@@ -140,7 +140,7 @@ string_view SemanticAnalysis::extractIdentifier(const AST* ast)
     return accessText(ast);
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::enforceConvertible(std::unique_ptr<Expression>& exp, const Type* target, [[maybe_unused]] bool explicitScope)
+bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, [[maybe_unused]] bool explicitScope)
 // Make sure an expression is convertible into a certain type
 {
     auto ta = exp->getType()->getEffectiveType();
@@ -159,21 +159,37 @@ bool SemanticAnalysis::enforceConvertible(std::unique_ptr<Expression>& exp, cons
         }
         if (ta->isFundamentalType()) {
             auto ia = static_cast<const FundamentalType*>(ta)->getId();
-            // So far all conversions are valid as long both are not void
-            return (ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void);
+            // So far all conversions are valid as long as both are not void
+            if ((ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void))
+                return true;
         }
     }
 
     // TODO Check user defined conversions
+    addError(loc, "no type conversion found");
     return false;
 }
 //---------------------------------------------------------------------------
 std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression([[maybe_unused]] Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
 // Analyze an expression
 {
-    // TODO
-    addError(ast, "analyzeExpression not implemented yet");
-    return {};
+    switch (ast->getType()) {
+        case AST::ExpressionList: addError(ast, "expression_list not implemented yet"); return {}; // TODO
+        case AST::AssignmentExpression: addError(ast, "assignment_expression not implemented yet"); return {}; // TODO
+        case AST::BinaryExpression: addError(ast, "binary_expression not implemented yet"); return {}; // TODO
+        case AST::PrefixExpression: addError(ast, "prefix_expression not implemented yet"); return {}; // TODO
+        case AST::PostfixExpression: addError(ast, "postfix_expression not implemented yet"); return {}; // TODO
+        case AST::BracketExpression: addError(ast, "bracket_expression not implemented yet"); return {}; // TODO
+        case AST::ParenExpression: addError(ast, "paren_expression not implemented yet"); return {}; // TODO
+        case AST::DotExpression: addError(ast, "dot_expression not implemented yet"); return {}; // TODO
+        case AST::InspectExpression: addError(ast, "inspect_expression not implemented yet"); return {}; // TODO
+        case AST::Literal: addError(ast, "literal not implemented yet"); return {}; // TODO
+        case AST::UnqualifiedId: addError(ast, "id_expression not implemented yet"); return {}; // TODO
+        case AST::QualifiedId: addError(ast, "id_expression not implemented yet"); return {}; // TODO
+        case AST::UnnamedDeclaration: addError(ast, "lambda expressions not implemented yet"); return {}; // TODO
+        case AST::NewExpression: addError(ast, "new expressions not implemented yet"); return {}; // TODO
+        default: addError(ast, "invalid AST"); return {};
+    }
 }
 //---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
@@ -213,7 +229,7 @@ unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, con
             return {};
         }
         arg = analyzeExpression(scope, ast->getAny(0), ft->returnValues[0].second);
-        if ((!arg) || (!enforceConvertible(arg, ft->returnValues[0].second))) return {};
+        if ((!arg) || (!enforceConvertible(ast->getAny(0), arg, ft->returnValues[0].second))) return {};
     } else {
         // TODO check that return values have been assigned
         if (ast->getAny(0)) {
