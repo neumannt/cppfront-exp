@@ -387,12 +387,11 @@ alt_name
 identifier <- &L !keyword L(L/D)* { $$ = auxil->ast(AST::Identifier, {$0s, $0e}); }
 
 numeric_literal
-<- '0'[xX]X[0-9a-fA-F']* (![.pP]) { $$ = auxil->ast2(AST::Literal, ast::Literal::HexInteger, {$0s, $0e}); }
- / '0'O[0-7']* { $$ = auxil->ast2(AST::Literal, ast::Literal::OctalInteger, {$0s, $0e}); }
- / D[0-9']*(([.]D+([eE][-+]?D+)?)/([eE][-+]?D+)) { $$ = auxil->ast2(AST::Literal, ast::Literal::DecimalFloat, {$0s, $0e}); }
- / !'0' D[0-9']* { $$ = auxil->ast2(AST::Literal, ast::Literal::DecimalInteger, {$0s, $0e}); }
- / '0'[xX]X[0-9a-fA-F']*(([.]D+([pP][-+]?D+)?)/([pP][-+]?D+)) { $$ = auxil->ast2(AST::Literal, ast::Literal::HexFloat, {$0s, $0e}); }
- / '0' (![0-9']) { $$ = auxil->ast2(AST::Literal, ast::Literal::DecimalInteger, {$0s, $0e}); }
+<- '0'[xX]X[0-9a-fA-F']* (![.pP]) (([uU] ('ll'/'LL'/[lLzZ])?)/(('ll'/'LL'/[zZ]) 'u'?))? { $$ = auxil->ast2(AST::Literal, ast::Literal::HexInteger, {$0s, $0e}); }
+ / '0'O[0-7']* (([uU] ('ll'/'LL'/[lLzZ])?)/(('ll'/'LL'/[zZ]) 'u'?))? { $$ = auxil->ast2(AST::Literal, ast::Literal::OctalInteger, {$0s, $0e}); }
+ / D[0-9']*(([.]D+([eE][-+]?D+)?)/([eE][-+]?D+))[fFlL]? { $$ = auxil->ast2(AST::Literal, ast::Literal::DecimalFloat, {$0s, $0e}); }
+ / D[0-9']* (([uU] ('ll'/'LL'/[lLzZ])?)/(('ll'/'LL'/[zZ]) 'u'?))? { $$ = auxil->ast2(AST::Literal, ast::Literal::DecimalInteger, {$0s, $0e}); }
+ / '0'[xX]X[0-9a-fA-F']*(([.]D+([pP][-+]?D+)?)/([pP][-+]?D+))[fFlL]? { $$ = auxil->ast2(AST::Literal, ast::Literal::HexFloat, {$0s, $0e}); }
 
 string_literal
 <- '"' ("\\\\" / "\\\"" / [^"])* '"' L?(L/D)* { $$ = auxil->ast2(AST::Literal, ast::Literal::StringLiteral, {$0s, $0e}); }

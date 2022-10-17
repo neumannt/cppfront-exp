@@ -48,6 +48,8 @@ class SemanticAnalysis {
 
     /// Analyze an expression
     std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);
+    /// Analyze a literal expression
+    std::unique_ptr<Expression> analyzeLiteral(const AST* ast);
     /// Analyze a compound statement
     std::unique_ptr<Statement> analyzeCompoundStatement(Scope& scope, const AST* ast);
     /// Analyze a return statement

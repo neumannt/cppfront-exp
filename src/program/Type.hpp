@@ -41,7 +41,8 @@ class Type {
         Bool,
         Float,
         Double,
-        LongDouble
+        LongDouble,
+        NullptrType
     };
 
     protected:
@@ -112,6 +113,8 @@ class Type {
     static const Type* getDouble(Program& program) { return getFundamentalType(program, FundamentalTypeId::Double); }
     /// Get a type representation for 'long double'
     static const Type* getLongDouble(Program& program) { return getFundamentalType(program, FundamentalTypeId::LongDouble); }
+    /// Get a type representation for 'nullptr_t'
+    static const Type* getNullptrType(Program& program) { return getFundamentalType(program, FundamentalTypeId::NullptrType); }
 };
 //---------------------------------------------------------------------------
 /// A fundamental type

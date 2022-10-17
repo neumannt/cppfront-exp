@@ -25,7 +25,7 @@ const Type* Type::getFundamentalType(Program& program, FundamentalTypeId id)
 // Get a fundamental type
 {
     // Cache the fundamental types in the program
-    static_assert(Program::fundamentalTypeCount > static_cast<unsigned>(FundamentalTypeId::LongDouble));
+    static_assert(Program::fundamentalTypeCount > static_cast<unsigned>(FundamentalTypeId::NullptrType));
     unsigned slot = static_cast<unsigned>(id);
     if (!program.fundamentalTypes[slot])
         program.fundamentalTypes[slot] = make_unique<FundamentalType>(&program, id);

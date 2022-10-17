@@ -5,6 +5,7 @@
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
+#include "parser/Range.hpp"
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
@@ -12,9 +13,32 @@ class Type;
 //---------------------------------------------------------------------------
 /// Base class for all expressions
 class Expression {
+    protected:
+    /// The original position in the source code
+    SourceLocation loc;
+    /// The result type
+    const Type* type;
+
+    /// Constructor
+    Expression(SourceLocation loc, const Type* type) : loc(loc), type(type) {}
+
     public:
+    /// Destructor
+    virtual ~Expression();
+
     /// Get the result type
-    virtual const Type* getType() const = 0;
+    const Type* getType() const { return type; }
+};
+//---------------------------------------------------------------------------
+/// A literal
+class Literal : public Expression {
+    protected:
+    /// The text
+    std::string_view text;
+
+    public:
+    /// Constructor
+    Literal(SourceLocation loc, const Type* type, std::string_view text) : Expression(loc, type), text(text) {}
 };
 //---------------------------------------------------------------------------
 }

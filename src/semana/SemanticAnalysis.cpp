@@ -151,6 +151,8 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
 
     // Standard conversions
     if (tb->isPointerType()) {
+        if (ta->isFundamentalType() && (static_cast<const FundamentalType*>(tb)->getId() == Type::FundamentalTypeId::NullptrType))
+            return true;
         // TODO handle const
     } else if (tb->isFundamentalType()) {
         auto ib = static_cast<const FundamentalType*>(tb)->getId();
@@ -160,7 +162,7 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
         if (ta->isFundamentalType()) {
             auto ia = static_cast<const FundamentalType*>(ta)->getId();
             // So far all conversions are valid as long as both are not void
-            if ((ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void))
+            if ((ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void) && (ia != Type::FundamentalTypeId::NullptrType) && (ib != Type::FundamentalTypeId::NullptrType))
                 return true;
         }
     }
@@ -169,6 +171,8 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     addError(loc, "no type conversion found");
     return false;
 }
+//---------------------------------------------------------------------------
+
 //---------------------------------------------------------------------------
 std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression([[maybe_unused]] Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
 // Analyze an expression
@@ -183,13 +187,35 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression([[maybe_unused]]
         case AST::ParenExpression: addError(ast, "paren_expression not implemented yet"); return {}; // TODO
         case AST::DotExpression: addError(ast, "dot_expression not implemented yet"); return {}; // TODO
         case AST::InspectExpression: addError(ast, "inspect_expression not implemented yet"); return {}; // TODO
-        case AST::Literal: addError(ast, "literal not implemented yet"); return {}; // TODO
+        case AST::Literal: return analyzeLiteral(ast);
         case AST::UnqualifiedId: addError(ast, "id_expression not implemented yet"); return {}; // TODO
         case AST::QualifiedId: addError(ast, "id_expression not implemented yet"); return {}; // TODO
         case AST::UnnamedDeclaration: addError(ast, "lambda expressions not implemented yet"); return {}; // TODO
         case AST::NewExpression: addError(ast, "new expressions not implemented yet"); return {}; // TODO
         default: addError(ast, "invalid AST"); return {};
     }
+}
+//---------------------------------------------------------------------------
+unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
+// Analyze a literal expression
+{
+    // TODO analyze the literals properly to distinguish double/float/long/...
+
+    auto text = accessText(ast);
+    auto loc = mapping.getBegin(ast->getRange());
+    switch (ast->getSubType<ast::Literal>()) {
+        case ast::Literal::True: return make_unique<Literal>(loc, Type::getBool(*program), text);
+        case ast::Literal::False: return make_unique<Literal>(loc, Type::getBool(*program), text);
+        case ast::Literal::Nullptr: return make_unique<Literal>(loc, Type::getNullptrType(*program), text);
+        case ast::Literal::CharLiteral: return make_unique<Literal>(loc, Type::getChar(*program), text);
+        case ast::Literal::StringLiteral: return make_unique<Literal>(loc, Type::getChar(*program)->getPointerTo(), text);
+        case ast::Literal::DecimalInteger: return make_unique<Literal>(loc, Type::getInt(*program), text);
+        case ast::Literal::OctalInteger: return make_unique<Literal>(loc, Type::getInt(*program), text);
+        case ast::Literal::HexInteger: return make_unique<Literal>(loc, Type::getInt(*program), text);
+        case ast::Literal::DecimalFloat: return make_unique<Literal>(loc, Type::getDouble(*program), text);
+        case ast::Literal::HexFloat: return make_unique<Literal>(loc, Type::getDouble(*program), text);
+    }
+    return {};
 }
 //---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)

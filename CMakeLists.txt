@@ -18,6 +18,7 @@ add_executable(cppfront-exp
 	src/parser/Range.cpp
 	src/parser/Source.cpp
 	src/program/Declaration.cpp
+	src/program/Expression.cpp
 	src/program/FunctionType.cpp
 	src/program/Module.cpp
 	src/program/Namespace.cpp
