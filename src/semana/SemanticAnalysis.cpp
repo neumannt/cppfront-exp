@@ -466,6 +466,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
                 addError(p, "default argument missing");
             }
         }
+        parameter.push_back(move(pa));
         ++slot;
     }
 

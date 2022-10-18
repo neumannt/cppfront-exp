@@ -17,10 +17,19 @@ class Program;
 /// Base class for all statments
 class Statement {
     public:
+    /// Types of statements
+    enum class Type {
+        Compound,
+        Return
+    };
+
     /// Constructor
     Statement();
     /// Destructor
     virtual ~Statement();
+
+    /// Get the statement type
+    virtual Type getType() const = 0;
 };
 //---------------------------------------------------------------------------
 /// A compound statement
@@ -35,6 +44,15 @@ class CompoundStatement : public Statement {
     CompoundStatement(SourceLocation begin, SourceLocation end, std::vector<std::unique_ptr<Statement>>&& statements) : begin(begin), end(end), statements(std::move(statements)) {}
     /// Destructor
     ~CompoundStatement();
+
+    /// Get the statement type
+    Type getType() const override { return Type::Compound; }
+    /// Get the begin location
+    auto getBegin() const { return begin; }
+    /// Get the end location
+    auto getEnd() const { return end; }
+    /// Get the contained statements
+    auto& getStatements() const { return statements; }
 };
 //---------------------------------------------------------------------------
 /// A return statement
@@ -49,6 +67,13 @@ class ReturnStatement : public Statement {
     ReturnStatement(SourceLocation begin, std::unique_ptr<Expression>&& exp) : begin(begin), exp(std::move(exp)) {}
     /// Destructor
     ~ReturnStatement();
+
+    /// Get the statement type
+    Type getType() const override { return Type::Return; }
+    /// Get the begin location
+    auto getBegin() const { return begin; }
+    /// Access the value to return (if any)
+    auto& getExpression() const { return exp; }
 };
 //---------------------------------------------------------------------------
 }

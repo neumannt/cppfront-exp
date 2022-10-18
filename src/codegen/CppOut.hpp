@@ -12,6 +12,7 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 class Declaration;
 class Program;
+class Statement;
 class Type;
 //---------------------------------------------------------------------------
 /// Logic for writing C++ code
@@ -20,7 +21,8 @@ class CppOut {
     std::ostream& out;
     /// The current position
     SourceLocation currentPos;
-    unsigned currentLine = 1, currentColumn = 1;
+    /// Are we generating the body?
+    bool inBody = false;
 
     /// Advance to a certain code location while pretty printing
     void advance(SourceLocation loc);
@@ -38,6 +40,8 @@ class CppOut {
 
     /// Generate code for a declaration
     void generateDeclaration(const Declaration& decl, unsigned slot, bool inHeader);
+    /// Generate code for a statement
+    void generateStatement(const Statement& s);
 
     public:
     /// Constructor

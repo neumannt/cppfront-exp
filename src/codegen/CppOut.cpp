@@ -1,7 +1,9 @@
 #include "codegen/CppOut.hpp"
 #include "program/Declaration.hpp"
+#include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
 #include "program/Program.hpp"
+#include "program/Statement.hpp"
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
@@ -14,8 +16,17 @@ namespace cpp2exp {
 void CppOut::advance(SourceLocation loc)
 // Advance to a certain code location while pretty printing
 {
-    static_cast<void>(loc);
-    // TODO
+    if (inBody && (currentPos.line < loc.line)) {
+        while (currentPos.line < loc.line) {
+            write("\n");
+            currentPos.line++;
+            currentPos.column = 1;
+        }
+        while (currentPos.column < loc.column) {
+            write(" ");
+            currentPos.column++;
+        }
+    }
 }
 //---------------------------------------------------------------------------
 void CppOut::write(std::string_view s)
@@ -90,11 +101,10 @@ void CppOut::generateDeclaration(const Declaration& decl, unsigned slot, bool in
 {
     if (decl.isFunction()) {
         auto& o = decl.accessOverload(slot);
-        if (!inHeader)
-            advance(o.loc);
+        advance(o.loc);
         auto type = o.type;
         if (type->returnValues.empty()) {
-            write("void");
+            write("[[nodiscard]] void");
         } else if ((type->returnValues.size() == 1) && (type->returnValues[0].first.empty())) {
             writeType(type->returnValues[0].second);
         } else {
@@ -112,12 +122,67 @@ void CppOut::generateDeclaration(const Declaration& decl, unsigned slot, bool in
                 };
                 write("};");
             }
-            write(n);
+            write("[[nodiscard]] ", n);
         }
         write(" ", decl.getName(), "(");
-        // TODO
-        write(");");
-        if (inHeader) write("\n");
+        bool first = true, hasForward = false;
+        for (auto& p : type->parameter) {
+            if (first)
+                first = false;
+            else
+                write(", ");
+            using Direction = FunctionType::ParameterDirection;
+            switch (p.direction) {
+                case Direction::In:
+                    write("cpp2::in<");
+                    writeType(p.type);
+                    write(">");
+                    break;
+                case Direction::Out:
+                    write("cpp2::out<");
+                    writeType(p.type);
+                    write(">");
+                    break;
+                case Direction::Inout:
+                    writeType(p.type);
+                    write("&");
+                    break;
+                case Direction::Move:
+                    writeType(p.type);
+                    write("&&");
+                    break;
+                case Direction::Forward:
+                    hasForward = true;
+                    write("auto&&");
+                    break;
+                case Direction::Copy:
+                    writeType(p.type);
+                    break;
+            }
+            write(" ", p.name);
+        }
+        write(")");
+        if (inHeader) {
+            write(";\n");
+        } else {
+            if (hasForward) {
+                write("\n requires ");
+                first = true;
+                for (auto& p : type->parameter) {
+                    if (p.direction == FunctionType::ParameterDirection::Forward) {
+                        if (first)
+                            first = false;
+                        else
+                            write(" && ");
+                        write("std::is_same_v<CPP2_TYPEOF(", p.name, "), ");
+                        writeType(p.type);
+                        write(")");
+                    }
+                }
+                write("\n");
+            }
+            generateStatement(*o.statement);
+        }
     } else if (inHeader) {
         // TODO
         write("??? ");
@@ -126,18 +191,59 @@ void CppOut::generateDeclaration(const Declaration& decl, unsigned slot, bool in
     }
 }
 //---------------------------------------------------------------------------
+void CppOut::generateStatement(const Statement& s)
+// Generate code for a statement
+{
+    switch (s.getType()) {
+        case Statement::Type::Compound: {
+            auto& c = static_cast<const CompoundStatement&>(s);
+            advance(c.getBegin());
+            write("{");
+
+            for (auto& s : c.getStatements())
+                generateStatement(*s);
+
+            auto l = c.getEnd();
+            if (l.column) --l.column;
+            advance(l);
+            write("}");
+            break;
+        }
+        case Statement::Type::Return: {
+            auto& r = static_cast<const ReturnStatement&>(s);
+            advance(r.getBegin());
+            write("return");
+            if (r.getExpression()) {
+                write(" ");
+                // TODO generate expression
+            }
+            write(";");
+            break;
+        }
+    }
+}
+//---------------------------------------------------------------------------
 void CppOut::generate(const Program& prog)
 // Generate the C++1 code
 {
     // Write the header first
+    inBody = false;
+    write("#include \"cpp2util.h\"\n");
     for (auto& d : prog.getSourceOrder()) {
         generateDeclaration(*d.first, d.second, true);
     }
+    write("\n// Cpp2 definitions ---------------------------------------------------------\n\n");
+
+    // We output the body now, reset the position information
+    inBody = true;
+    currentPos.line = 1;
+    currentPos.column = 1;
 
     // We reconstruct the original source code order here
     for (auto& d : prog.getSourceOrder()) {
         generateDeclaration(*d.first, d.second, false);
     }
+    write("\n");
 }
 //---------------------------------------------------------------------------
 }
