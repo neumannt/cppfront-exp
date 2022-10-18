@@ -11,6 +11,7 @@
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 class Declaration;
+class Expression;
 class Program;
 class Statement;
 class Type;
@@ -42,6 +43,8 @@ class CppOut {
     void generateDeclaration(const Declaration& decl, unsigned slot, bool inHeader);
     /// Generate code for a statement
     void generateStatement(const Statement& s);
+    /// Generate code for an expression
+    void generateExpression(const Expression& e);
 
     public:
     /// Constructor

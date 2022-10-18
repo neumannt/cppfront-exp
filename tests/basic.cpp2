@@ -1,0 +1,5 @@
+// So far we only support very simple constructs...
+foo: (x:int) -> int = {
+   return 2;
+}
+

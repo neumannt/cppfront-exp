@@ -13,6 +13,12 @@ class Type;
 //---------------------------------------------------------------------------
 /// Base class for all expressions
 class Expression {
+    public:
+    /// Expression categories
+    enum class Category {
+        Literal
+    };
+
     protected:
     /// The original position in the source code
     SourceLocation loc;
@@ -26,6 +32,8 @@ class Expression {
     /// Destructor
     virtual ~Expression();
 
+    /// Get the expression category
+    virtual Category getCategory() const = 0;
     /// Get the result type
     const Type* getType() const { return type; }
 };
@@ -39,6 +47,11 @@ class Literal : public Expression {
     public:
     /// Constructor
     Literal(SourceLocation loc, const Type* type, std::string_view text) : Expression(loc, type), text(text) {}
+
+    /// Get the expression category
+    Category getCategory() const override { return Category::Literal; }
+    /// Get the text
+    auto getText() const { return text; }
 };
 //---------------------------------------------------------------------------
 }

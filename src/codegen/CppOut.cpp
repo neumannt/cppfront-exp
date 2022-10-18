@@ -215,11 +215,20 @@ void CppOut::generateStatement(const Statement& s)
             write("return");
             if (r.getExpression()) {
                 write(" ");
-                // TODO generate expression
+                generateExpression(*r.getExpression());
             }
             write(";");
             break;
         }
+    }
+}
+//---------------------------------------------------------------------------
+void CppOut::generateExpression(const Expression& e)
+// Generate code for an expression
+{
+    using Category = Expression::Category;
+    switch (e.getCategory()) {
+        case Category::Literal: write(static_cast<const Literal&>(e).getText()); break;
     }
 }
 //---------------------------------------------------------------------------
