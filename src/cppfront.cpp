@@ -1,3 +1,4 @@
+#include "codegen/CppOut.hpp"
 #include "parser/Parser.hpp"
 #include "semana/SemanticAnalysis.hpp"
 #include <iostream>
@@ -35,6 +36,9 @@ int main(int argc, char* argv[]) {
     } else {
         cout << "semantic analysis ok" << endl;
     }
+
+    cpp2exp::CppOut out(std::cout);
+    out.generate(semana.getProgram());
 
     return 0;
 }

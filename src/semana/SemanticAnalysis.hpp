@@ -79,6 +79,8 @@ class SemanticAnalysis {
     bool analyze(const AST* translationUnit);
     /// Get the error list
     auto& getErrors() const { return errors; }
+    /// Get the program
+    auto& getProgram() const { return *program; }
 };
 //---------------------------------------------------------------------------
 }

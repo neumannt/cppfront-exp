@@ -12,6 +12,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cpp2parser.cpp ${CMAKE_CUR
 
 add_executable(cppfront-exp
 	src/cppfront.cpp
+	src/codegen/CppOut.cpp
 	src/infra/Hash.cpp
 	src/parser/AST.cpp
 	src/parser/Parser.cpp

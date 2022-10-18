@@ -5,6 +5,7 @@
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
+#include "parser/Range.hpp"
 #include <memory>
 #include <vector>
 //---------------------------------------------------------------------------
@@ -19,6 +20,8 @@ class Declaration {
     public:
     /// An overload entry
     struct Overload {
+        /// The source location (for pretty printing)
+        SourceLocation loc;
         /// The function type of that overload
         const FunctionType* type;
         /// The default values (if any)
@@ -30,6 +33,8 @@ class Declaration {
     };
 
     private:
+    /// The source location (for pretty printing)
+    SourceLocation loc;
     /// The name
     std::string name;
     /// The overloads (if a function)
@@ -39,16 +44,25 @@ class Declaration {
 
     public:
     /// Constructor
-    Declaration(std::string name, bool isFunction);
+    Declaration(SourceLocation loc, std::string name, bool isFunction);
     /// Destructor
     ~Declaration();
+
+    /// Get the name
+    std::string_view getName() const { return name; }
 
     /// Does this declaration describe a function?
     bool isFunction() const { return func; }
     /// Check if an overload exists. This ignores parameter names and return types
     Overload* findFunctionOverload(const FunctionType* type);
     /// Add a new function overload
-    Overload* addFunctionOverload(const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset);
+    unsigned addFunctionOverload(SourceLocation loc, const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset);
+    /// Get the number of overload entries
+    unsigned getOverloadCount() const { return overloads.size(); }
+    /// Access a certain overload
+    Overload& accessOverload(unsigned slot) { return overloads[slot]; }
+    /// Access a certain overload
+    const Overload& accessOverload(unsigned slot) const { return overloads[slot]; }
 };
 //---------------------------------------------------------------------------
 }

@@ -510,6 +510,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
 bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
 // Analyze a declaration
 {
+    auto loc = mapping.getBegin(declaration->getRange());
     auto name = extractIdentifier(declaration->get(0, AST::Identifier));
     auto details = declaration->get(1, AST::UnnamedDeclaration);
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
@@ -521,10 +522,11 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
         if ((!isFunction) || (!decl->isFunction()))
             return addError(declaration, "duplicate definition");
     } else {
-        decl = scope.getCurrentNamespace()->addDeclaration(name, isFunction);
+        decl = scope.getCurrentNamespace()->addDeclaration(loc, name, isFunction);
     }
 
     // Analyze the signature
+    unsigned slot = 0;
     if (isFunction) {
         vector<unique_ptr<Expression>> defaultArguments;
         unsigned defaultArgumentsOffset;
@@ -536,8 +538,9 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
                 return addError(declaration, "function overload with that signature already exists");
             return addError(declaration, "function overload with ambiguous signature already exists");
         }
-        decl->addFunctionOverload(funcType, move(defaultArguments), defaultArgumentsOffset);
+        slot = decl->addFunctionOverload(loc, funcType, move(defaultArguments), defaultArgumentsOffset);
     }
+    program->trackSourceOrder(decl, slot);
 
     return true;
 }

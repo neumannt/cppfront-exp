@@ -11,8 +11,8 @@ using namespace std;
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-Declaration::Declaration(string name, bool isFunction)
-    : name(move(name)), func(isFunction) {
+Declaration::Declaration(SourceLocation loc, string name, bool isFunction)
+    : loc(loc), name(move(name)), func(isFunction) {
 }
 //---------------------------------------------------------------------------
 Declaration::~Declaration() {
@@ -35,11 +35,11 @@ Declaration::Overload* Declaration::findFunctionOverload(const FunctionType* typ
     return nullptr;
 }
 //---------------------------------------------------------------------------
-Declaration::Overload* Declaration::addFunctionOverload(const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset)
+unsigned Declaration::addFunctionOverload(SourceLocation loc, const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset)
 // Add a new function overload
 {
-    overloads.emplace_back(type, move(defaultArguments), defaultArgumentsOffset);
-    return &overloads.back();
+    overloads.emplace_back(loc, type, move(defaultArguments), defaultArgumentsOffset);
+    return overloads.size() - 1;
 }
 //---------------------------------------------------------------------------
 }
