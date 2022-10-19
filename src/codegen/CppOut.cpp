@@ -22,6 +22,11 @@ void CppOut::advance(SourceLocation loc)
             currentPos.line++;
             currentPos.column = 1;
         }
+        if (writeLines) {
+            write("#line ");
+            write(to_string(loc.line));
+            write(" \"", loc.file, "\"\n");
+        }
         while (currentPos.column < loc.column) {
             write(" ");
             currentPos.column++;
@@ -237,7 +242,7 @@ void CppOut::generate(const Program& prog)
 {
     // Write the header first
     inBody = false;
-    write("#include \"cpp2util.h\"\n");
+    write("#include \"cpp2util.hpp\"\n");
     for (auto& d : prog.getSourceOrder()) {
         generateDeclaration(*d.first, d.second, true);
     }
@@ -245,7 +250,7 @@ void CppOut::generate(const Program& prog)
 
     // We output the body now, reset the position information
     inBody = true;
-    currentPos.line = 1;
+    currentPos.line = 0;
     currentPos.column = 1;
 
     // We reconstruct the original source code order here

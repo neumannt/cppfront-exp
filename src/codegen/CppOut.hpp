@@ -22,6 +22,8 @@ class CppOut {
     std::ostream& out;
     /// The current position
     SourceLocation currentPos;
+    /// Include line information?
+    bool writeLines;
     /// Are we generating the body?
     bool inBody = false;
 
@@ -48,7 +50,7 @@ class CppOut {
 
     public:
     /// Constructor
-    explicit CppOut(std::ostream& out) : out(out), currentPos({"", 1, 1}) {}
+    explicit CppOut(std::ostream& out, bool writeLines) : out(out), currentPos({"", 1, 1}), writeLines(writeLines) {}
 
     /// Generate the C++1 code
     void generate(const Program& prog);

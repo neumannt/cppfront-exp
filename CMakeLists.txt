@@ -1,6 +1,8 @@
-cmake_minimum_required (VERSION 3.1.1)
+cmake_minimum_required (VERSION 3.20)
 set(CMAKE_CXX_STANDARD 20)
 project (cppfront-exp)
+
+enable_testing()
 
 include_directories(${cppfront-exp_SOURCE_DIR}/src)
 
@@ -32,3 +34,9 @@ add_executable(cppfront-exp
 )
 
 target_compile_options(cppfront-exp PRIVATE -Werror -Wall -Wextra)
+
+file(GLOB testfiles "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp2")
+foreach(filename ${testfiles})
+    cmake_path(GET filename FILENAME n)
+    add_test(NAME "test_${n}" COMMAND cppfront-exp --test "-I${CMAKE_CURRENT_SOURCE_DIR}/include" ${filename})
+endforeach()
