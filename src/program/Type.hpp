@@ -52,9 +52,6 @@ class Type {
     /// Constructor
     explicit Type(Program* program);
 
-    /// Get a fundamental type
-    static const Type* getFundamentalType(Program& program, FundamentalTypeId id);
-
     public:
     /// Destructor
     virtual ~Type();
@@ -75,6 +72,8 @@ class Type {
     /// Get a pointer to the current type
     const Type* getPointerTo() const;
 
+    /// Get a fundamental type
+    static const Type* getFundamentalType(Program& program, FundamentalTypeId id);
     /// Get a type representation for 'void'
     static const Type* getVoid(Program& program) { return getFundamentalType(program, FundamentalTypeId::Void); }
     /// Get a type representation for 'char'

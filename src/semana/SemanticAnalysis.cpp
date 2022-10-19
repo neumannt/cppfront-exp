@@ -10,6 +10,7 @@
 #include "program/Type.hpp"
 #include "semana/Scope.hpp"
 #include <cassert>
+#include <limits>
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
@@ -199,21 +200,141 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression([[maybe_unused]]
 unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
 // Analyze a literal expression
 {
-    // TODO analyze the literals properly to distinguish double/float/long/...
-
     auto text = accessText(ast);
     auto loc = mapping.getBegin(ast->getRange());
+
+    // Logic for handling integer formats
+    auto handleInteger = [&](uint64_t v, string_view suffix, bool nonDecimal) -> unique_ptr<Expression> {
+        // Interpret the suffix
+        bool isUnsigned = false, hasZ = false;
+        unsigned l = 0;
+        for (char c : suffix) {
+            switch (c) {
+                case 'u':
+                case 'U': isUnsigned = true; break;
+                case 'l':
+                case 'L': l++; break;
+                case 'z':
+                case 'Z': hasZ = true; break;
+            }
+        }
+
+        // Choose the appropriate integer type
+        uint64_t limit;
+        const Type* type;
+        using FundamentalTypeId = Type::FundamentalTypeId;
+        auto consider = [&](uint64_t candidateLimit, FundamentalTypeId id, bool valid = true) -> bool {
+            if (valid && (v <= candidateLimit)) {
+                limit = candidateLimit;
+                type = Type::getFundamentalType(*program, id);
+                return true;
+            }
+            return false;
+        };
+        auto force = [&](uint64_t candidateLimit, FundamentalTypeId id) {
+            limit = candidateLimit;
+            type = Type::getFundamentalType(*program, id);
+        };
+        if (hasZ) {
+            if (isUnsigned || (nonDecimal && (v > static_cast<uint64_t>(numeric_limits<long>::max())))) {
+                force(numeric_limits<unsigned long>::max(), FundamentalTypeId::UnsignedLong);
+            } else {
+                force(numeric_limits<long>::max(), FundamentalTypeId::Long);
+            }
+        } else if (isUnsigned) {
+            if (!consider(numeric_limits<unsigned>::max(), FundamentalTypeId::UnsignedInt, l < 1)) {
+                if (!consider(numeric_limits<unsigned long>::max(), FundamentalTypeId::UnsignedLong, l < 2)) {
+                    force(numeric_limits<unsigned long long>::max(), FundamentalTypeId::UnsignedLongLong);
+                }
+            }
+        } else if (nonDecimal) {
+            if (!consider(numeric_limits<int>::max(), FundamentalTypeId::Int, l < 1)) {
+                if (!consider(numeric_limits<unsigned>::max(), FundamentalTypeId::UnsignedInt, l < 1)) {
+                    if (!consider(numeric_limits<long>::max(), FundamentalTypeId::Long, l < 2)) {
+                        if (!consider(numeric_limits<unsigned long>::max(), FundamentalTypeId::UnsignedLong, l < 2)) {
+                            if (!consider(numeric_limits<long long>::max(), FundamentalTypeId::LongLong)) {
+                                force(numeric_limits<unsigned long long>::max(), FundamentalTypeId::UnsignedLongLong);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            if (!consider(numeric_limits<int>::max(), FundamentalTypeId::Int, l < 1)) {
+                if (!consider(numeric_limits<long>::max(), FundamentalTypeId::Long, l < 2)) {
+                    force(numeric_limits<long long>::max(), FundamentalTypeId::LongLong);
+                }
+            }
+        }
+        if (v > limit) {
+            addError(ast, "integer value out of range");
+            return {};
+        }
+        return make_unique<Literal>(loc, type, text);
+    };
+
+    // Interpret the literal
     switch (ast->getSubType<ast::Literal>()) {
         case ast::Literal::True: return make_unique<Literal>(loc, Type::getBool(*program), text);
         case ast::Literal::False: return make_unique<Literal>(loc, Type::getBool(*program), text);
         case ast::Literal::Nullptr: return make_unique<Literal>(loc, Type::getNullptrType(*program), text);
         case ast::Literal::CharLiteral: return make_unique<Literal>(loc, Type::getChar(*program), text);
         case ast::Literal::StringLiteral: return make_unique<Literal>(loc, Type::getChar(*program)->getPointerTo(), text);
-        case ast::Literal::DecimalInteger: return make_unique<Literal>(loc, Type::getInt(*program), text);
-        case ast::Literal::OctalInteger: return make_unique<Literal>(loc, Type::getInt(*program), text);
-        case ast::Literal::HexInteger: return make_unique<Literal>(loc, Type::getInt(*program), text);
-        case ast::Literal::DecimalFloat: return make_unique<Literal>(loc, Type::getDouble(*program), text);
-        case ast::Literal::HexFloat: return make_unique<Literal>(loc, Type::getDouble(*program), text);
+        case ast::Literal::DecimalInteger: {
+            uint64_t v = 0;
+            unsigned index = 0;
+            for (; index < text.length(); ++index) {
+                char c = text[index];
+                if (c == '\'') continue;
+                if ((c < '0') || (c > '9')) break;
+                uint64_t v1 = 10 * v, v2 = v1 + (c - '0');
+                if ((v1 < v) || (v2 < v1)) {
+                    addError(ast, "integer value out of range");
+                    return {};
+                }
+                v = v2;
+            }
+            return handleInteger(v, text.substr(index), false);
+        }
+        case ast::Literal::OctalInteger: {
+            uint64_t v = 0;
+            unsigned index = 0;
+            for (; index < text.length(); ++index) {
+                char c = text[index];
+                if (c == '\'') continue;
+                if ((c < '0') || (c > '7')) break;
+                uint64_t v1 = 8 * v, v2 = v1 + (c - '0');
+                if ((v1 < v) || (v2 < v1)) {
+                    addError(ast, "integer value out of range");
+                    return {};
+                }
+                v = v2;
+            }
+            return handleInteger(v, text.substr(index), true);
+        }
+        case ast::Literal::HexInteger: {
+            uint64_t v = 0;
+            unsigned index = 0;
+            for (; index < text.length(); ++index) {
+                char c = text[index];
+                if (c == '\'') continue;
+                if (!(((c >= '0') && (c <= '9')) || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f')))) break;
+                unsigned n = ((c >= 'A') && (c <= 'F')) ? (c - 'A' + 10) : (((c >= 'a') && (c <= 'f')) ? (c - 'a' + 10) : (c - '0'));
+                uint64_t v1 = 16 * v, v2 = v1 + n;
+                if ((v1 < v) || (v2 < v1)) {
+                    addError(ast, "integer value out of range");
+                    return {};
+                }
+                v = v2;
+            }
+            return handleInteger(v, text.substr(index), true);
+        }
+        case ast::Literal::DecimalFloat:
+        case ast::Literal::HexFloat:
+            // Interpret type suffix if any
+            if ((text.back() == 'l') || (text.back() == 'L')) return make_unique<Literal>(loc, Type::getLongDouble(*program), text);
+            if ((text.back() == 'f') || (text.back() == 'F')) return make_unique<Literal>(loc, Type::getFloat(*program), text);
+            return make_unique<Literal>(loc, Type::getDouble(*program), text);
     }
     return {};
 }
