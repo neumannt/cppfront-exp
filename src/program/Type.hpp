@@ -45,6 +45,15 @@ class Type {
         NullptrType
     };
 
+    /// Integer type?
+    static bool isInteger(FundamentalTypeId id) { return (id >= FundamentalTypeId::Int) && (id <= FundamentalTypeId::UnsignedLongLong); }
+    /// Unsigned integer?
+    static bool isUnsignedInt(FundamentalTypeId id) { return (id == FundamentalTypeId::UnsignedInt) || (id == FundamentalTypeId::UnsignedLong) || (id == FundamentalTypeId::UnsignedLongLong); }
+    /// Floating point data type?
+    static bool isFloatingPoint(FundamentalTypeId id) { return (id >= FundamentalTypeId::Float) && (id <= FundamentalTypeId::LongDouble); }
+    /// Numerical data type
+    static bool isNumerical(FundamentalTypeId id) { return ((id >= FundamentalTypeId::Char) && (id <= FundamentalTypeId::UnsignedLongLong)) || isFloatingPoint(id); }
+
     protected:
     /// The containing program
     Program* program;

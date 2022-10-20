@@ -14,6 +14,7 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 class AST;
 class Expression;
+class FunctionId;
 class FunctionType;
 class Module;
 class Namespace;
@@ -45,11 +46,15 @@ class SemanticAnalysis {
     std::string_view extractIdentifier(const AST* ast);
     /// Make sure an expression is convertible into a certain type
     bool enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
+    /// Try to resolve an operator
+    const Type* resolveOperator(Scope& scope, const FunctionId& id, const Expression& left, const Expression& right);
 
     /// Analyze an expression
     std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);
     /// Analyze a literal expression
     std::unique_ptr<Expression> analyzeLiteral(const AST* ast);
+    /// Analyze a binary expression
+    std::unique_ptr<Expression> analyzeBinaryExpression(Scope& scope, const AST* ast);
     /// Analyze a compound statement
     std::unique_ptr<Statement> analyzeCompoundStatement(Scope& scope, const AST* ast);
     /// Analyze a return statement

@@ -15,6 +15,43 @@ class Expression;
 class FunctionType;
 class Statement;
 //---------------------------------------------------------------------------
+/// A function id
+struct FunctionId {
+    /// Known categories
+    enum Category {
+        Regular,
+        OperatorAnd,
+        OperatorOr,
+        OperatorBitAnd,
+        OperatorBitOr,
+        OperatorBitXor,
+        OperatorEqual,
+        OperatorNotEqual,
+        OperatorLess,
+        OperatorLessEq,
+        OperatorGreater,
+        OperatorGreaterEq,
+        OperatorSpaceship,
+        OperatorLeftShift,
+        OperatorRightShift,
+        OperatorPlus,
+        OperatorMinus,
+        OperatorMul,
+        OperatorDiv,
+        OperatorModulo
+    };
+
+    /// The name (if any)
+    std::string name;
+    /// The category
+    Category category;
+
+    /// Construct a regular function
+    FunctionId(std::string name) : name(std::move(name)), category(Regular) {}
+    /// Construct a special operator function
+    FunctionId(Category category) : category(category) {}
+};
+//---------------------------------------------------------------------------
 /// A declaration within a namespace
 class Declaration {
     public:

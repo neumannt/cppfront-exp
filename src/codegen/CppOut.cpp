@@ -228,12 +228,63 @@ void CppOut::generateStatement(const Statement& s)
     }
 }
 //---------------------------------------------------------------------------
+void CppOut::generateBinaryExpression(const BinaryExpression& e)
+// Generate code for an expression
+{
+    // Inspect precedence
+    auto pe = e.getPrecedence(), pl = e.getLeft().getPrecedence(), pr = e.getRight().getPrecedence();
+
+    // Generate left with parenthesis if needed
+    if (pl < pe) {
+        write("(");
+        generateExpression(e.getLeft());
+        write(")");
+    } else {
+        generateExpression(e.getLeft());
+    }
+
+    // Generate the operator itself
+    advance(e.getLocation());
+    using Op = BinaryExpression::Op;
+    switch (e.getOp()) {
+        case Op::LogicalAnd: write(" && "); break;
+        case Op::LogicalOr: write(" || "); break;
+        case Op::BitAnd: write(" & "); break;
+        case Op::BitOr: write(" | "); break;
+        case Op::BitXor: write(" ^ "); break;
+        case Op::Equal: write(" == "); break;
+        case Op::NotEqual: write(" != "); break;
+        case Op::Less: write(" < "); break;
+        case Op::LessEq: write(" <= "); break;
+        case Op::Greater: write(" > "); break;
+        case Op::GreaterEq: write(" >= "); break;
+        case Op::Spaceship: write(" <=> "); break;
+        case Op::LeftShift: write(" << "); break;
+        case Op::RightShift: write(" >> "); break;
+        case Op::Plus: write(" + "); break;
+        case Op::Minus: write(" - "); break;
+        case Op::Mul: write(" * "); break;
+        case Op::Div: write(" / "); break;
+        case Op::Modulo: write(" % "); break;
+    }
+
+    // Generate right with parenthesis if needed
+    if (pr <= pe) {
+        write("(");
+        generateExpression(e.getRight());
+        write(")");
+    } else {
+        generateExpression(e.getRight());
+    }
+}
+//---------------------------------------------------------------------------
 void CppOut::generateExpression(const Expression& e)
 // Generate code for an expression
 {
     using Category = Expression::Category;
     switch (e.getCategory()) {
         case Category::Literal: write(static_cast<const Literal&>(e).getText()); break;
+        case Category::Binary: generateBinaryExpression(static_cast<const BinaryExpression&>(e)); break;
     }
 }
 //---------------------------------------------------------------------------

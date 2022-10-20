@@ -173,15 +173,19 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     return false;
 }
 //---------------------------------------------------------------------------
-
+const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, [[maybe_unused]] const FunctionId& id, [[maybe_unused]] const Expression& left, [[maybe_unused]] const Expression& right)
+// Try to resolve an operator
+{
+    return nullptr; // TODO
+}
 //---------------------------------------------------------------------------
-std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression([[maybe_unused]] Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
+std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
 // Analyze an expression
 {
     switch (ast->getType()) {
         case AST::ExpressionList: addError(ast, "expression_list not implemented yet"); return {}; // TODO
         case AST::AssignmentExpression: addError(ast, "assignment_expression not implemented yet"); return {}; // TODO
-        case AST::BinaryExpression: addError(ast, "binary_expression not implemented yet"); return {}; // TODO
+        case AST::BinaryExpression: return analyzeBinaryExpression(scope, ast);
         case AST::PrefixExpression: addError(ast, "prefix_expression not implemented yet"); return {}; // TODO
         case AST::PostfixExpression: addError(ast, "postfix_expression not implemented yet"); return {}; // TODO
         case AST::BracketExpression: addError(ast, "bracket_expression not implemented yet"); return {}; // TODO
@@ -336,6 +340,200 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
             if ((text.back() == 'f') || (text.back() == 'F')) return make_unique<Literal>(loc, Type::getFloat(*program), text);
             return make_unique<Literal>(loc, Type::getDouble(*program), text);
     }
+    return {};
+}
+//---------------------------------------------------------------------------
+unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, const AST* ast)
+// Analyze a binary expression
+{
+    // Interpret the AST node type
+    auto loc = mapping.getBegin(ast->getRange());
+    auto subType = ast->getSubType<ast::BinaryExpression>();
+    BinaryExpression::Op op;
+    FunctionId::Category id;
+    bool isCmp = false;
+    switch (subType) {
+        case ast::BinaryExpression::LogicalAnd:
+            op = BinaryExpression::LogicalAnd;
+            id = FunctionId::OperatorAnd;
+            break;
+        case ast::BinaryExpression::LogicalOr:
+            op = BinaryExpression::LogicalOr;
+            id = FunctionId::OperatorOr;
+            break;
+        case ast::BinaryExpression::BitAnd:
+            op = BinaryExpression::BitAnd;
+            id = FunctionId::OperatorBitAnd;
+            break;
+        case ast::BinaryExpression::BitOr:
+            op = BinaryExpression::BitOr;
+            id = FunctionId::OperatorBitOr;
+            break;
+        case ast::BinaryExpression::BitXor:
+            op = BinaryExpression::BitXor;
+            id = FunctionId::OperatorBitXor;
+            break;
+        case ast::BinaryExpression::Equal:
+            op = BinaryExpression::Equal;
+            id = FunctionId::OperatorEqual;
+            isCmp = true;
+            break;
+        case ast::BinaryExpression::NotEqual:
+            op = BinaryExpression::NotEqual;
+            id = FunctionId::OperatorNotEqual;
+            isCmp = true;
+            break;
+        case ast::BinaryExpression::Less:
+            op = BinaryExpression::Less;
+            id = FunctionId::OperatorLess;
+            isCmp = true;
+            break;
+        case ast::BinaryExpression::LessEq:
+            op = BinaryExpression::LessEq;
+            id = FunctionId::OperatorLessEq;
+            isCmp = true;
+            break;
+        case ast::BinaryExpression::Greater:
+            op = BinaryExpression::Greater;
+            id = FunctionId::OperatorGreater;
+            isCmp = true;
+            break;
+        case ast::BinaryExpression::GreaterEq:
+            op = BinaryExpression::GreaterEq;
+            id = FunctionId::OperatorGreaterEq;
+            isCmp = true;
+            break;
+        case ast::BinaryExpression::Spaceship:
+            op = BinaryExpression::Spaceship;
+            id = FunctionId::OperatorSpaceship;
+            break;
+        case ast::BinaryExpression::LeftShift:
+            op = BinaryExpression::LeftShift;
+            id = FunctionId::OperatorLeftShift;
+            break;
+        case ast::BinaryExpression::RightShift:
+            op = BinaryExpression::RightShift;
+            id = FunctionId::OperatorRightShift;
+            break;
+        case ast::BinaryExpression::Plus:
+            op = BinaryExpression::Plus;
+            id = FunctionId::OperatorPlus;
+            break;
+        case ast::BinaryExpression::Minus:
+            op = BinaryExpression::Minus;
+            id = FunctionId::OperatorMinus;
+            break;
+        case ast::BinaryExpression::Mul:
+            op = BinaryExpression::Mul;
+            id = FunctionId::OperatorMul;
+            break;
+        case ast::BinaryExpression::Div:
+            op = BinaryExpression::Div;
+            id = FunctionId::OperatorDiv;
+            break;
+        case ast::BinaryExpression::Modulo:
+            op = BinaryExpression::Modulo;
+            id = FunctionId::OperatorModulo;
+            break;
+        case ast::BinaryExpression::Is: addError(ast, "is not implemented yet"); return {}; // TODO
+        case ast::BinaryExpression::As: addError(ast, "as not implemented yet"); return {}; // TODO
+    }
+
+    // Check the input
+    auto left = analyzeExpression(scope, ast->getAny(0));
+    if (!left) return {};
+    auto right = analyzeExpression(scope, ast->getAny(1));
+    if (!right) return {};
+
+    // Check for overloaded operators
+    FunctionId fid(id);
+    const Type* match = resolveOperator(scope, fid, *left, *right);
+    if (match) return make_unique<BinaryExpression>(loc, match, op, move(left), move(right));
+
+    // In case of comparisons, try again with spaceship
+    if (isCmp) {
+        match = resolveOperator(scope, FunctionId::OperatorSpaceship, *left, *right);
+        if (match) return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
+    }
+
+    // The usual arithmetic conversions
+    using FundamentalTypeId = Type::FundamentalTypeId;
+    const Type* leftType = left->getType();
+    const Type* rightType = right->getType();
+    FundamentalTypeId leftId = FundamentalTypeId::Void, rightId = FundamentalTypeId::Void;
+    if (leftType->isFundamentalType() && rightType->isFundamentalType()) {
+        leftId = static_cast<const FundamentalType*>(leftType)->getId();
+        rightId = static_cast<const FundamentalType*>(rightType)->getId();
+
+        // Promote to integer
+        if ((leftId >= FundamentalTypeId::Char) && (leftId <= FundamentalTypeId::Int)) leftId = FundamentalTypeId::Int;
+        if ((rightId >= FundamentalTypeId::Char) && (rightId <= FundamentalTypeId::Int)) rightId = FundamentalTypeId::Int;
+
+        // Promotion rules
+        if ((leftId == FundamentalTypeId::LongDouble) || (rightId == FundamentalTypeId::LongDouble)) {
+            leftId = rightId = FundamentalTypeId::LongDouble;
+        } else if ((leftId == FundamentalTypeId::Double) || (rightId == FundamentalTypeId::Double)) {
+            leftId = rightId = FundamentalTypeId::Double;
+        } else if ((leftId == FundamentalTypeId::Float) || (rightId == FundamentalTypeId::Float)) {
+            leftId = rightId = FundamentalTypeId::Float;
+        } else if (Type::isInteger(leftId) && Type::isInteger(rightId)) {
+            if (Type::isUnsignedInt(leftId) == Type::isUnsignedInt(rightId)) {
+                leftId = rightId = max(leftId, rightId);
+            } else if ((Type::isUnsignedInt(leftId)) && (leftId > rightId)) {
+                rightId = leftId;
+            } else if ((Type::isUnsignedInt(rightId)) && (rightId > leftId)) {
+                leftId = rightId;
+            } else {
+                leftId = rightId = max(leftId, rightId);
+            }
+        }
+        leftType = FundamentalType::getFundamentalType(*program, leftId);
+        rightType = FundamentalType::getFundamentalType(*program, rightId);
+    }
+
+    // Handle builtin operators
+    switch (op) {
+        case BinaryExpression::LogicalAnd:
+        case BinaryExpression::LogicalOr:
+            if ((!enforceConvertible(ast, left, Type::getBool(*program))) || (!enforceConvertible(ast, right, Type::getBool(*program)))) return {};
+            return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
+        case BinaryExpression::BitAnd:
+        case BinaryExpression::BitOr:
+        case BinaryExpression::BitXor:
+        case BinaryExpression::LeftShift:
+            op = BinaryExpression::LeftShift;
+            id = FunctionId::OperatorLeftShift;
+            break;
+        case BinaryExpression::RightShift:
+            op = BinaryExpression::RightShift;
+            id = FunctionId::OperatorRightShift;
+            break;
+            if ((leftType == rightType) && Type::isInteger(leftId)) return make_unique<BinaryExpression>(loc, leftType, op, move(left), move(right));
+            break;
+        case BinaryExpression::Equal:
+        case BinaryExpression::NotEqual:
+        case BinaryExpression::Less:
+        case BinaryExpression::LessEq:
+        case BinaryExpression::Greater:
+        case BinaryExpression::GreaterEq:
+        case BinaryExpression::Spaceship:
+            if (((leftType == rightType) && leftType->isPointerType()) || ((Type::isNumerical(leftId) && Type::isNumerical(rightId)))) return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
+            break;
+        case BinaryExpression::Plus:
+        case BinaryExpression::Minus:
+            if (leftType->isPointerType() || rightType->isPointerType()) {
+                addError(ast, "pointer arithmetic is illegal - use std::span");
+                return {};
+            }
+            [[fallthrough]];
+        case BinaryExpression::Mul:
+        case BinaryExpression::Div:
+        case BinaryExpression::Modulo:
+            if ((leftType == rightType) && (Type::isNumerical(leftId))) return make_unique<BinaryExpression>(loc, leftType, op, move(left), move(right));
+            break;
+    }
+
+    addError(ast, "binary operator not supported for data types");
     return {};
 }
 //---------------------------------------------------------------------------

@@ -200,84 +200,84 @@ assignment_operator
  / at_or_eq { $$ = auxil->ast2(AST::AssignmentOperator, ast::AssignmentOperator::PipeEq, {$0s, $0e}); }
 
 logical_or_expression
-<- l:logical_or_expression _ at_or _ r:logical_and_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalOr, {$0s, $0e}, l, r); }
+<- l:logical_or_expression _ <at_or> _ r:logical_and_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalOr, {$1s, $1e}, l, r); }
  / e:logical_and_expression { $$ = e; }
 logical_or_expression_no_cmp
-<- l:logical_or_expression_no_cmp _ at_or _ r:logical_and_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalOr, {$0s, $0e}, l, r); }
+<- l:logical_or_expression_no_cmp _ <at_or> _ r:logical_and_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalOr, {$1s, $1e}, l, r); }
  / e:logical_and_expression_no_cmp { $$ = e; }
 
 logical_and_expression
-<- l:logical_and_expression _ at_and _ r:bit_or_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalAnd, {$0s, $0e}, l, r); }
+<- l:logical_and_expression _ <at_and> _ r:bit_or_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalAnd, {$1s, $1e}, l, r); }
  / e:bit_or_expression { $$ = e; }
 logical_and_expression_no_cmp
-<- l:logical_and_expression_no_cmp _ at_and _ r:bit_or_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalAnd, {$0s, $0e}, l, r); }
+<- l:logical_and_expression_no_cmp _ <at_and> _ r:bit_or_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LogicalAnd, {$1s, $1e}, l, r); }
  / e:bit_or_expression_no_cmp { $$ = e; }
 
 bit_or_expression
-<- l:bit_or_expression _ at_bitor _ r:bit_xor_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitOr, {$0s, $0e}, l, r); }
+<- l:bit_or_expression _ <at_bitor> _ r:bit_xor_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitOr, {$1s, $1e}, l, r); }
  / e:bit_xor_expression { $$ = e; }
 bit_or_expression_no_cmp
-<- l:bit_or_expression_no_cmp _ at_bitor _ r:bit_xor_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitOr, {$0s, $0e}, l, r); }
+<- l:bit_or_expression_no_cmp _ <at_bitor> _ r:bit_xor_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitOr, {$1s, $1e}, l, r); }
  / e:bit_xor_expression_no_cmp { $$ = e; }
 
 bit_xor_expression
-<- l:bit_xor_expression _ at_xor _ r:bit_and_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitXor, {$0s, $0e}, l, r); }
+<- l:bit_xor_expression _ <at_xor> _ r:bit_and_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitXor, {$1s, $1e}, l, r); }
  / e:bit_and_expression { $$ = e; }
 bit_xor_expression_no_cmp
-<- l:bit_xor_expression_no_cmp _ at_xor _ r:bit_and_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitXor, {$0s, $0e}, l, r); }
+<- l:bit_xor_expression_no_cmp _ <at_xor> _ r:bit_and_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitXor, {$1s, $1e}, l, r); }
  / e:bit_and_expression_no_cmp { $$ = e; }
 
 bit_and_expression
-<- l:bit_and_expression _ at_bitand _ r:equality_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitAnd, {$0s, $0e}, l, r); }
+<- l:bit_and_expression _ <at_bitand> _ r:equality_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitAnd, {$1s, $1e}, l, r); }
  / e:equality_expression { $$ = e; }
 bit_and_expression_no_cmp
-<- l:bit_and_expression_no_cmp _ at_bitand _ r:equality_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitAnd, {$0s, $0e}, l, r); }
+<- l:bit_and_expression_no_cmp _ <at_bitand> _ r:equality_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::BitAnd, {$1s, $1e}, l, r); }
  / e:equality_expression_no_cmp { $$ = e; }
 
 equality_expression
-<- l:equality_expression _ '==' _ r:relational_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Equal, {$0s, $0e}, l, r); }
- / l:equality_expression _ at_not_eq _ r:relational_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::NotEqual, {$0s, $0e}, l, r); }
+<- l:equality_expression _ <'=='> _ r:relational_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Equal, {$1s, $1e}, l, r); }
+ / l:equality_expression _ <at_not_eq> _ r:relational_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::NotEqual, {$2s, $2e}, l, r); }
  / e:relational_expression { $$ = e; }
 equality_expression_no_cmp
-<- l:equality_expression_no_cmp _ '==' _ r:relational_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Equal, {$0s, $0e}, l, r); }
- / l:equality_expression_no_cmp _ at_not_eq _ r:relational_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::NotEqual, {$0s, $0e}, l, r); }
+<- l:equality_expression_no_cmp _ <'=='> _ r:relational_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Equal, {$1s, $1e}, l, r); }
+ / l:equality_expression_no_cmp _ <at_not_eq> _ r:relational_expression_no_cmp { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::NotEqual, {$2s, $2e}, l, r); }
  / e:relational_expression_no_cmp { $$ = e; }
 
 relational_expression
-<- l:relational_expression _ '<=' _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LessEq, {$0s, $0e}, l, r); }
- / l:relational_expression _ '>=' _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::GreaterEq, {$0s, $0e}, l, r); }
- / l:relational_expression _ '<' (!'<') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Less, {$0s, $0e}, l, r); }
- / l:relational_expression _ '>' (!'>') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Greater, {$0s, $0e}, l, r); }
+<- l:relational_expression _ <'<='> _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LessEq, {$1s, $1e}, l, r); }
+ / l:relational_expression _ <'>='> _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::GreaterEq, {$2s, $2e}, l, r); }
+ / l:relational_expression _ <'<'> (!'<') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Less, {$3s, $3e}, l, r); }
+ / l:relational_expression _ <'>'> (!'>') _ r:compare_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Greater, {$4s, $4e}, l, r); }
  / e:compare_expression { $$ = e; }
 relational_expression_no_cmp
 <- e:compare_expression_no_cmp { $$ = e; }
 
 compare_expression
-<- l:compare_expression _ '<=>' _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$0s, $0e}, l, r); }
+<- l:compare_expression _ <'<=>'> _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$1s, $1e}, l, r); }
  / e:shift_expression { $$ = e; }
 compare_expression_no_cmp
-<- l:compare_expression _ '<=>' _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$0s, $0e}, l, r); }
+<- l:compare_expression _ <'<=>'> _ r:shift_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Spaceship, {$1s, $1e}, l, r); }
  / e:additive_expression { $$ = e; }
 
 shift_expression
-<- l:shift_expression _ '<<' _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LeftShift, {$0s, $0e}, l, r); }
- / l:shift_expression _ '>>' _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::RightShift, {$0s, $0e}, l, r); }
+<- l:shift_expression _ <'<<'> _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::LeftShift, {$1s, $1e}, l, r); }
+ / l:shift_expression _ <'>>'> _ r:additive_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::RightShift, {$2s, $2e}, l, r); }
  / e:additive_expression { $$ = e; }
 
 additive_expression
-<- l:additive_expression _ '+' (!'+') _ r:multiplicative_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Plus, {$0s, $0e}, l, r); }
- / l:additive_expression _ '-' (!'-') _ r:multiplicative_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Minus, {$0s, $0e}, l, r); }
+<- l:additive_expression _ <'+'> (!'+') _ r:multiplicative_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Plus, {$1s, $1e}, l, r); }
+ / l:additive_expression _ <'-'> (!'-') _ r:multiplicative_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Minus, {$2s, $2e}, l, r); }
  / e: multiplicative_expression { $$ = e; }
 
 multiplicative_expression
-<- l:multiplicative_expression _ '*' _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Mul, {$0s, $0e}, l, r); }
- / l:multiplicative_expression _ '/' _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Div, {$0s, $0e}, l, r); }
- / l:multiplicative_expression _ '%' _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Modulo, {$0s, $0e}, l, r); }
+<- l:multiplicative_expression _ <'*'> _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Mul, {$1s, $1e}, l, r); }
+ / l:multiplicative_expression _ <'/'> _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Div, {$2s, $2e}, l, r); }
+ / l:multiplicative_expression _ <'%'> _ r:is_as_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Modulo, {$3s, $3e}, l, r); }
  / e:is_as_expression { $$ = e; }
 
 is_as_expression
-<- l:is_as_expression _ kw_is _ r:id_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Is, {$0s, $0e}, l, r); }
- / l:is_as_expression _ kw_as _ r:id_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::As, {$0s, $0e}, l, r); }
+<- l:is_as_expression _ <kw_is> _ r:id_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::Is, {$1s, $1e}, l, r); }
+ / l:is_as_expression _ <kw_as> _ r:id_expression { $$ = auxil->ast2(AST::BinaryExpression, ast::BinaryExpression::As, {$2s, $2e}, l, r); }
  / e:prefix_expression { $$ = e; }
 
 prefix_expression
