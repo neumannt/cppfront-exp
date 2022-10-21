@@ -5,6 +5,7 @@
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: BSD-3-Clause
 //---------------------------------------------------------------------------
+#include <array>
 #include <memory>
 #include <unordered_map>
 #include <vector>

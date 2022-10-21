@@ -22,6 +22,7 @@ class AST {
         AssignmentOperator,
         BinaryExpression,
         BracketExpression,
+        Class,
         CompoundStatement,
         ConststExpr,
         Contract,
@@ -43,6 +44,7 @@ class AST {
         Identifier,
         InspectExpression,
         Literal,
+        Namespace,
         NestedNameSpecifier,
         NestedNameSpecifierList,
         NewExpression,
@@ -58,14 +60,17 @@ class AST {
         ReturnStatement,
         SelectionStatement,
         StatementSeq,
+        Template,
         TemplateArgument,
         TemplateArgumentList,
         TemplateId,
+        TemplateDeclarationList,
         Token,
         TranslationUnit,
         TypeModifier,
         UnnamedDeclaration,
         UnqualifiedId,
+        Using,
         WhileStatement
     };
 

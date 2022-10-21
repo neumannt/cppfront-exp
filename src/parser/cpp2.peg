@@ -158,6 +158,12 @@ fundamental_type
 
 declaration
 <- i:identifier _ d:unnamed_declaration { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
+ ## extensions to mock existing C++1 code
+ / kw_namespace _ '{' _ n:declaration_seq _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, n); }
+ / kw_class _ i:identifier (_ ':' _ p:identifier)? _ '{' _ b:declaration_seq _ '}' { $$ = auxil->ast(AST::Class, {$0s, $0e}, i, p, b); }
+ / kw_using _ i:identifier _ '=' _ t:id_expression _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, t); }
+ / kw_using _ i:identifier _ '=' _ kw_decltype _ '(' e:expression _ ')' _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, e); }
+ / kw_template _ '<' _ l:template_declaration_list _ '>' d:declaration { $$ = auxil->ast(AST::Template, {$0s, $0e}, l, d); }
 
 declaration_param
 <- i:identifier _ d:unnamed_declaration_param { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
@@ -639,6 +645,12 @@ end_of_file <- !.
 
 preprocessor
 <- '#' [^\n\r]* [\n\r] { /* TODO */ }
+
+## extensions to mock existing C++1 code
+
+template_declaration_list
+<- l:template_declaration_list _ ',' e:identifier { $$ = auxil->appendList(AST::TemplateDeclarationList, {$0s, $0e}, l, e); }
+ / e:identifier { $$ = auxil->buildList(AST::TemplateDeclarationList, {$0s, $0e}, e); }
 
 %%
 
