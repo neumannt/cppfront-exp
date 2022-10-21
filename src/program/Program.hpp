@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
-// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-License-Identifier: MIT
 //---------------------------------------------------------------------------
 #include <array>
 #include <memory>
