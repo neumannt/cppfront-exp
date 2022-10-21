@@ -179,11 +179,11 @@ const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, [[m
     return nullptr; // TODO
 }
 //---------------------------------------------------------------------------
-std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
+std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint)
 // Analyze an expression
 {
     switch (ast->getType()) {
-        case AST::ExpressionList: addError(ast, "expression_list not implemented yet"); return {}; // TODO
+        case AST::ExpressionListExpression: return analyzeExpressionListExpression(scope, ast, typeHint);
         case AST::AssignmentExpression: addError(ast, "assignment_expression not implemented yet"); return {}; // TODO
         case AST::BinaryExpression: return analyzeBinaryExpression(scope, ast);
         case AST::PrefixExpression: addError(ast, "prefix_expression not implemented yet"); return {}; // TODO
@@ -535,6 +535,18 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
 
     addError(ast, "binary operator not supported for data types");
     return {};
+}
+//---------------------------------------------------------------------------
+std::unique_ptr<Expression> SemanticAnalysis::analyzeExpressionListExpression(Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
+// Analyze an expression
+{
+    // Check if this is something else than a simple value
+    if ((!ast->getAnyOrNull(0)) || (ast->getAnyOrNull(0)->getAnyOrNull(1))) {
+        addError(ast, "implicit object construction not implemented yet"); // TODO
+        return {};
+    }
+
+    return analyzeExpression(scope, ast->getAny(0)->getAny(0));
 }
 //---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
