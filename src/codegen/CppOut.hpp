@@ -13,6 +13,7 @@ namespace cpp2exp {
 class BinaryExpression;
 class Declaration;
 class Expression;
+class FunctionDeclaration;
 class Program;
 class Statement;
 class Type;
@@ -40,7 +41,7 @@ class CppOut {
     void writeType(const Type* type);
 
     /// Get the name of the return type of a declaration with multiple return values
-    std::string returnTypeName(const Declaration& decl, unsigned slot);
+    std::string returnTypeName(const FunctionDeclaration& decl, unsigned slot);
 
     /// Generate code for a declaration
     void generateDeclaration(const Declaration& decl, unsigned slot, bool inHeader);

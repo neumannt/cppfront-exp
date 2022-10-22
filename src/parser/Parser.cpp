@@ -43,5 +43,13 @@ const AST* Parser::parseFile(const string& fileName)
     return parseImpl();
 }
 //---------------------------------------------------------------------------
+const AST* Parser::parseString(const string& fileName, string_view input)
+// Load the input from a string and it
+{
+    this->fileName = fileName;
+    content = string(input);
+    return parseImpl();
+}
+//---------------------------------------------------------------------------
 }
 //---------------------------------------------------------------------------

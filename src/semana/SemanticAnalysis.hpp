@@ -16,6 +16,7 @@ class AST;
 class Expression;
 class FunctionId;
 class FunctionType;
+class Parser;
 class Module;
 class Namespace;
 class Program;
@@ -34,6 +35,10 @@ class SemanticAnalysis {
     std::unique_ptr<Program> program;
     /// The target
     std::unique_ptr<Module> target;
+    /// The mocked stdlib
+    std::unique_ptr<Parser> stdlibMock;
+    /// Are we currently processing the mocked stdlib?
+    bool inStdlib = false;
 
     /// Store an error message
     void addError(SourceLocation loc, std::string text);
@@ -75,12 +80,22 @@ class SemanticAnalysis {
     bool analyzeDeclaration(Scope& scope, const AST* declaration);
     /// Analyze a definition (ignore declarations
     bool analyzeDefinition(Scope& scope, const AST* definition);
+    /// Phases of analysis
+    enum class Phase : bool { Declarations,
+                              Definitions };
+    /// Analyze a namespace
+    bool analyzeNamespace(Scope& scope, const AST* ast, Phase phase);
+    /// Analyze all declarations
+    bool analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase);
 
     public:
     /// Constructor
     SemanticAnalysis(std::string_view fileName, std::string_view content);
     /// Destructor
     ~SemanticAnalysis();
+
+    /// Load the C++1 stdlib mock
+    bool loadStdlib();
 
     /// Analyze a parse tree
     bool analyze(const AST* translationUnit);

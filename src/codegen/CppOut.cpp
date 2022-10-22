@@ -93,7 +93,7 @@ void CppOut::writeType(const Type* type)
     }
 }
 //---------------------------------------------------------------------------
-std::string CppOut::returnTypeName(const Declaration& decl, unsigned slot)
+std::string CppOut::returnTypeName(const FunctionDeclaration& decl, unsigned slot)
 // Get the name of the return type of a declaration with multiple return values
 {
     if (decl.getOverloadCount() > 1)
@@ -101,10 +101,11 @@ std::string CppOut::returnTypeName(const Declaration& decl, unsigned slot)
     return "return_" + string(decl.getName());
 }
 //---------------------------------------------------------------------------
-void CppOut::generateDeclaration(const Declaration& decl, unsigned slot, bool inHeader)
+void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool inHeader)
 // Generate code for a declaration
 {
-    if (decl.isFunction()) {
+    if (gdecl.isFunction()) {
+        auto& decl = static_cast<const FunctionDeclaration&>(gdecl);
         auto& o = decl.accessOverload(slot);
         advance(o.loc);
         auto type = o.type;
@@ -188,10 +189,17 @@ void CppOut::generateDeclaration(const Declaration& decl, unsigned slot, bool in
             }
             generateStatement(*o.statement);
         }
+    } else if (gdecl.getCategory() == Declaration::Category::Namespace) {
+        if (slot == 0) {
+            advance(gdecl.getLocation());
+            write("namespace ", gdecl.getName(), " {");
+        } else if (slot == 1) {
+            write("}");
+        }
     } else if (inHeader) {
         // TODO
         write("??? ");
-        write(decl.getName());
+        write(gdecl.getName());
         write(";\n");
     }
 }

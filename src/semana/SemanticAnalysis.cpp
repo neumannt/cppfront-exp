@@ -1,5 +1,6 @@
 #include "semana/SemanticAnalysis.hpp"
 #include "parser/AST.hpp"
+#include "parser/Parser.hpp"
 #include "program/Declaration.hpp"
 #include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
@@ -9,6 +10,7 @@
 #include "program/Statement.hpp"
 #include "program/Type.hpp"
 #include "semana/Scope.hpp"
+#include "stdlib/Stdlib.hpp"
 #include <cassert>
 #include <limits>
 //---------------------------------------------------------------------------
@@ -112,6 +114,22 @@ SemanticAnalysis::SemanticAnalysis(string_view fileName, string_view content)
 SemanticAnalysis::~SemanticAnalysis()
 // Destructor
 {
+}
+//---------------------------------------------------------------------------
+bool SemanticAnalysis::loadStdlib()
+// Load the C++1 stdlib mock
+{
+    if (stdlibMock) return false;
+    stdlibMock = make_unique<Parser>();
+    auto ast = stdlibMock->parseString("<stdlib>", Stdlib::interface);
+    if (!ast) return false;
+    RangeMapping mp(stdlibMock->getFileName(), stdlibMock->getContent());
+    swap(mapping, mp);
+    inStdlib = true;
+    if (!analyze(ast)) return false;
+    inStdlib = false;
+    swap(mapping, mp);
+    return true;
 }
 //---------------------------------------------------------------------------
 void SemanticAnalysis::addError(SourceLocation loc, string text)
@@ -854,25 +872,30 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
         if ((!isFunction) || (!decl->isFunction()))
             return addError(declaration, "duplicate definition");
     } else {
-        decl = scope.getCurrentNamespace()->addDeclaration(loc, name, isFunction);
+        if (isFunction) {
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, string(name)));
+        } else {
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, string(name)));
+        }
     }
 
     // Analyze the signature
     unsigned slot = 0;
     if (isFunction) {
+        auto fdecl = static_cast<FunctionDeclaration*>(decl);
         vector<unique_ptr<Expression>> defaultArguments;
         unsigned defaultArgumentsOffset;
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset);
         if (!funcType) return false;
-        auto existing = decl->findFunctionOverload(funcType);
+        auto existing = fdecl->findFunctionOverload(funcType);
         if (existing) {
             if (existing->type == funcType)
                 return addError(declaration, "function overload with that signature already exists");
             return addError(declaration, "function overload with ambiguous signature already exists");
         }
-        slot = decl->addFunctionOverload(loc, funcType, move(defaultArguments), defaultArgumentsOffset);
+        slot = fdecl->addFunctionOverload(loc, funcType, move(defaultArguments), defaultArgumentsOffset);
     }
-    program->trackSourceOrder(decl, slot);
+    if (!inStdlib) program->trackSourceOrder(decl, slot);
 
     return true;
 }
@@ -886,8 +909,9 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (isFunction) {
+        auto fdecl = static_cast<FunctionDeclaration*>(decl);
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr);
-        auto overload = decl->findFunctionOverload(funcType);
+        auto overload = fdecl->findFunctionOverload(funcType);
 
         FunctionScope fs(overload->type);
         Scope innerScope(scope);
@@ -906,6 +930,50 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
     return true;
 }
 //---------------------------------------------------------------------------
+bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phase)
+// Analyze a namespace
+{
+    auto name = extractIdentifier(ast->get(0, AST::Identifier));
+    auto decl = scope.getCurrentNamespace()->findDeclaration(name);
+    if (!decl) {
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<NamespaceDeclaration>(mapping.getBegin(ast->getRange()), string(name)));
+    } else if (decl->getCategory() != Declaration::Category::Namespace) {
+        return addError(ast, "duplicate definition");
+    }
+    if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 0);
+
+    {
+        Scope innerScope(scope);
+        innerScope.setCurrentNamespace(static_cast<NamespaceDeclaration*>(decl)->getNamespace());
+        if (!analyzeDeclarations(innerScope, ast->getAnyOrNull(1), phase)) return false;
+    }
+
+    if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 1);
+
+    return true;
+}
+//---------------------------------------------------------------------------
+bool SemanticAnalysis::analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase)
+// Analyze a parse tree
+{
+    // Process all declarations
+    for (auto d : ASTList(declarations))
+        switch (d->getType()) {
+            case AST::Type::Declaration:
+                if (!((phase == Phase::Declarations) ? analyzeDeclaration(scope, d) : analyzeDefinition(scope, d))) return false;
+                break;
+            case AST::Type::Namespace:
+                if (!analyzeNamespace(scope, d, phase)) return false;
+                break;
+            case AST::Type::Class: return addError(d, "class not implemented yet");
+            case AST::Type::Using: return addError(d, "using not implemented yet");
+            case AST::Type::Template: return addError(d, "template not implemented yet");
+            default: return addError(d, "invalid AST");
+        }
+
+    return true;
+}
+//---------------------------------------------------------------------------
 bool SemanticAnalysis::analyze(const AST* translationUnit)
 // Analyze a parse tree
 {
@@ -917,14 +985,10 @@ bool SemanticAnalysis::analyze(const AST* translationUnit)
     scope.setCurrentNamespace(target->getGlobalNamespace());
 
     // Process all declarations
-    for (auto d : ASTList(declarations))
-        if (!analyzeDeclaration(scope, d))
-            return false;
+    if (!analyzeDeclarations(scope, declarations, Phase::Declarations)) return false;
 
     // Now process all definitions
-    for (auto d : ASTList(declarations))
-        if (!analyzeDefinition(scope, d))
-            return false;
+    if (!analyzeDeclarations(scope, declarations, Phase::Definitions)) return false;
 
     return true;
 }

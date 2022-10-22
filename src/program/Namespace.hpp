@@ -30,7 +30,7 @@ class Namespace {
     /// Find a declaration within the namespace
     Declaration* findDeclaration(std::string_view name);
     /// Create a new declaration
-    Declaration* addDeclaration(SourceLocation loc, std::string_view name, bool isFunction);
+    Declaration* addDeclaration(std::unique_ptr<Declaration> decl);
 };
 //---------------------------------------------------------------------------
 }

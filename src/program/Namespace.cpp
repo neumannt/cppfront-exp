@@ -24,12 +24,12 @@ Declaration* Namespace::findDeclaration(std::string_view name)
     return iter->second.get();
 }
 //---------------------------------------------------------------------------
-Declaration* Namespace::addDeclaration(SourceLocation loc, std::string_view name, bool isFunction)
+Declaration* Namespace::addDeclaration(std::unique_ptr<Declaration> decl)
 // Create a new declaration
 {
-    auto n = make_unique<Declaration>(loc, string(name), isFunction);
-    auto d = n.get();
-    declarations.emplace(name, move(n));
+    auto name = decl->getName();
+    auto d = decl.get();
+    declarations.emplace(name, move(decl));
     return d;
 }
 //---------------------------------------------------------------------------

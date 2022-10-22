@@ -1,6 +1,7 @@
 #include "program/Declaration.hpp"
 #include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
+#include "program/Namespace.hpp"
 #include "program/Statement.hpp"
 //---------------------------------------------------------------------------
 // cppfront-exp
@@ -11,14 +12,36 @@ using namespace std;
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-Declaration::Declaration(SourceLocation loc, string name, bool isFunction)
-    : loc(loc), name(move(name)), func(isFunction) {
+Declaration::Declaration(SourceLocation loc, string name)
+    : loc(loc), name(move(name)) {
 }
 //---------------------------------------------------------------------------
 Declaration::~Declaration() {
 }
 //---------------------------------------------------------------------------
-Declaration::Overload* Declaration::findFunctionOverload(const FunctionType* type)
+VariableDeclaration::VariableDeclaration(SourceLocation loc, string name)
+    : Declaration(loc, move(name))
+// Constructor
+{
+}
+//---------------------------------------------------------------------------
+VariableDeclaration::~VariableDeclaration()
+// Destructor
+{
+}
+//---------------------------------------------------------------------------
+FunctionDeclaration::FunctionDeclaration(SourceLocation loc, string name)
+    : Declaration(loc, move(name))
+// Constructor
+{
+}
+//---------------------------------------------------------------------------
+FunctionDeclaration::~FunctionDeclaration()
+// Destructor
+{
+}
+//---------------------------------------------------------------------------
+FunctionDeclaration::Overload* FunctionDeclaration::findFunctionOverload(const FunctionType* type)
 // Check if an overload exists. This ignores parameter names and return types
 {
     for (auto& o : overloads) {
@@ -35,11 +58,22 @@ Declaration::Overload* Declaration::findFunctionOverload(const FunctionType* typ
     return nullptr;
 }
 //---------------------------------------------------------------------------
-unsigned Declaration::addFunctionOverload(SourceLocation loc, const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset)
+unsigned FunctionDeclaration::addFunctionOverload(SourceLocation loc, const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset)
 // Add a new function overload
 {
     overloads.emplace_back(loc, type, move(defaultArguments), defaultArgumentsOffset);
     return overloads.size() - 1;
+}
+//---------------------------------------------------------------------------
+NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, string name)
+    : Declaration(loc, move(name))
+// Constructor
+{
+}
+//---------------------------------------------------------------------------
+NamespaceDeclaration::~NamespaceDeclaration()
+// Destructor
+{
 }
 //---------------------------------------------------------------------------
 }

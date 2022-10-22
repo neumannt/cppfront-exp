@@ -159,7 +159,8 @@ fundamental_type
 declaration
 <- i:identifier _ d:unnamed_declaration { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
  ## extensions to mock existing C++1 code
- / kw_namespace _ '{' _ n:declaration_seq _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, n); }
+ / kw_namespace _ i:identifier _ '{' _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, i, nullptr); }
+ / kw_namespace _ i:identifier _ '{' _ n:declaration_seq _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, i, n); }
  / kw_class _ i:identifier (_ ':' _ p:identifier)? _ '{' _ b:declaration_seq _ '}' { $$ = auxil->ast(AST::Class, {$0s, $0e}, i, p, b); }
  / kw_using _ i:identifier _ '=' _ t:id_expression _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, t); }
  / kw_using _ i:identifier _ '=' _ kw_decltype _ '(' e:expression _ ')' _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, e); }

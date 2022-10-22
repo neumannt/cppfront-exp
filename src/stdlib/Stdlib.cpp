@@ -19,7 +19,7 @@ const char* Stdlib::interface = R"stdlib(
 
 namespace std {
 
-using nullpt_t = decltype(nullptr);
+//using nullpt_t = decltype(nullptr);
 
 }
 

@@ -10,9 +10,9 @@
 //---------------------------------------------------------------------------
 using namespace std;
 //---------------------------------------------------------------------------
-static void printErrors(string_view fileName, const vector<cpp2exp::Error>& errors) {
+static void printErrors(const vector<cpp2exp::Error>& errors) {
     for (auto& e : errors) {
-        cout << fileName << ":" << e.loc.line << ":" << e.loc.column << ":" << e.text << endl;
+        cout << e.loc.file << ":" << e.loc.line << ":" << e.loc.column << ":" << e.text << endl;
     }
 }
 //---------------------------------------------------------------------------
@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 
         if (mode != Mode::ParsingFails) {
             if (!ast) {
-                printErrors(fileName, parser.getErrors());
+                printErrors(parser.getErrors());
                 return 1;
             } else {
                 if (!testMode)
@@ -125,9 +125,13 @@ int main(int argc, char* argv[]) {
         }
 
         cpp2exp::SemanticAnalysis semana(parser.getFileName(), parser.getContent());
+        if (!semana.loadStdlib()) {
+            printErrors(semana.getErrors());
+            return 1;
+        }
         if (!semana.analyze(ast)) {
             if (mode != Mode::AnalysisFails) {
-                printErrors(parser.getFileName(), semana.getErrors());
+                printErrors(semana.getErrors());
                 return 1;
             } else {
                 continue;

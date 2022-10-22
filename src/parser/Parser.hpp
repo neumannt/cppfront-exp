@@ -36,6 +36,8 @@ class Parser {
 
     /// Load the input from a file and parse the file
     const AST* parseFile(const std::string& fileName);
+    /// Load the input from a string and it
+    const AST* parseString(const std::string& fileName, std::string_view input);
     /// Get the error list
     auto& getErrors() const { return errors; }
     /// Get the file name

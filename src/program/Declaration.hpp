@@ -13,6 +13,7 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 class Expression;
 class FunctionType;
+class Namespace;
 class Statement;
 //---------------------------------------------------------------------------
 /// A function id
@@ -55,6 +56,51 @@ struct FunctionId {
 /// A declaration within a namespace
 class Declaration {
     public:
+    /// The declaration category
+    enum class Category {
+        Variable,
+        Function,
+        Namespace
+    };
+
+    private:
+    /// The source location (for pretty printing)
+    SourceLocation loc;
+    /// The name
+    std::string name;
+
+    public:
+    /// Constructor
+    Declaration(SourceLocation loc, std::string name);
+    /// Destructor
+    ~Declaration();
+
+    /// Get the location
+    auto& getLocation() const { return loc; }
+    /// Get the name
+    std::string_view getName() const { return name; }
+
+    /// Get the declaration category
+    virtual Category getCategory() const = 0;
+    /// Does this declaration describe a function?
+    bool isFunction() const { return getCategory() == Category::Function; }
+};
+//---------------------------------------------------------------------------
+/// A variable declaration
+class VariableDeclaration : public Declaration {
+    public:
+    /// Constructor
+    VariableDeclaration(SourceLocation loc, std::string name);
+    /// Destructor
+    ~VariableDeclaration();
+
+    /// Get the declaration category
+    Category getCategory() const override { return Category::Variable; };
+};
+//---------------------------------------------------------------------------
+/// A function declaration
+class FunctionDeclaration : public Declaration {
+    public:
     /// An overload entry
     struct Overload {
         /// The source location (for pretty printing)
@@ -70,26 +116,18 @@ class Declaration {
     };
 
     private:
-    /// The source location (for pretty printing)
-    SourceLocation loc;
-    /// The name
-    std::string name;
     /// The overloads (if a function)
     std::vector<Overload> overloads;
-    /// Is a function?
-    bool func;
 
     public:
     /// Constructor
-    Declaration(SourceLocation loc, std::string name, bool isFunction);
+    FunctionDeclaration(SourceLocation loc, std::string name);
     /// Destructor
-    ~Declaration();
+    ~FunctionDeclaration();
 
-    /// Get the name
-    std::string_view getName() const { return name; }
+    /// Get the declaration category
+    Category getCategory() const override { return Category::Function; };
 
-    /// Does this declaration describe a function?
-    bool isFunction() const { return func; }
     /// Check if an overload exists. This ignores parameter names and return types
     Overload* findFunctionOverload(const FunctionType* type);
     /// Add a new function overload
@@ -100,6 +138,24 @@ class Declaration {
     Overload& accessOverload(unsigned slot) { return overloads[slot]; }
     /// Access a certain overload
     const Overload& accessOverload(unsigned slot) const { return overloads[slot]; }
+};
+//---------------------------------------------------------------------------
+/// A namespace declaration
+class NamespaceDeclaration : public Declaration {
+    /// The underlying namespace
+    std::unique_ptr<Namespace> ns;
+
+    public:
+    /// Constructor
+    NamespaceDeclaration(SourceLocation loc, std::string name);
+    /// Destructor
+    ~NamespaceDeclaration();
+
+    /// Get the declaration category
+    Category getCategory() const override { return Category::Namespace; };
+
+    /// Get the contained namespace
+    Namespace* getNamespace() { return ns.get(); }
 };
 //---------------------------------------------------------------------------
 }
