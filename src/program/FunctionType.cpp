@@ -31,7 +31,7 @@ const FunctionType* FunctionType::get(Program& prog, vector<Parameter>&& paramet
     auto range = prog.getTypeCache().equal_range(hash);
     for (auto iter = range.first; iter != range.second; ++iter) {
         if (iter->second->isFunctionType()) {
-            auto ft = static_cast<const FunctionType*>(iter->second.get());
+            auto ft = iter->second->as<FunctionType>();
             if ((ft->parameter == parameter) && (ft->returnValues == returnValues) && (ft->canThrow == canThrow))
                 return ft;
         }

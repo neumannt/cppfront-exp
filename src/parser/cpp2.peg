@@ -163,7 +163,7 @@ declaration
  / kw_namespace _ i:identifier _ '{' _ n:declaration_seq _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, i, n); }
  / kw_class _ i:identifier (_ ':' _ p:identifier)? _ '{' _ b:declaration_seq _ '}' { $$ = auxil->ast(AST::Class, {$0s, $0e}, i, p, b); }
  / kw_using _ i:identifier _ '=' _ t:id_expression _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, t); }
- / kw_using _ i:identifier _ '=' _ kw_decltype _ '(' e:expression _ ')' _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, e); }
+ / kw_using _ i:identifier _ '=' _ kw_decltype _ '(' e:expression _ ')' _ ';' { $$ = auxil->ast(AST::UsingDecltype, {$0s, $0e}, i, e); }
  / kw_template _ '<' _ l:template_declaration_list _ '>' d:declaration { $$ = auxil->ast(AST::Template, {$0s, $0e}, l, d); }
 
 declaration_param

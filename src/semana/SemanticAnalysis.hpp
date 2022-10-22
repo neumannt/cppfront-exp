@@ -85,6 +85,8 @@ class SemanticAnalysis {
                               Definitions };
     /// Analyze a namespace
     bool analyzeNamespace(Scope& scope, const AST* ast, Phase phase);
+    /// Analyze a typedef
+    bool analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype);
     /// Analyze all declarations
     bool analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase);
 

@@ -66,12 +66,23 @@ unsigned FunctionDeclaration::addFunctionOverload(SourceLocation loc, const Func
 }
 //---------------------------------------------------------------------------
 NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, string name)
-    : Declaration(loc, move(name))
+    : Declaration(loc, name), ns(make_unique<Namespace>(name))
 // Constructor
 {
 }
 //---------------------------------------------------------------------------
 NamespaceDeclaration::~NamespaceDeclaration()
+// Destructor
+{
+}
+//---------------------------------------------------------------------------
+TypedefDeclaration::TypedefDeclaration(SourceLocation loc, string name, const Type* originalType)
+    : Declaration(loc, move(name)), newType(make_unique<AliasType>(originalType->getProgram(), originalType))
+// Constructor
+{
+}
+//---------------------------------------------------------------------------
+TypedefDeclaration::~TypedefDeclaration()
 // Destructor
 {
 }

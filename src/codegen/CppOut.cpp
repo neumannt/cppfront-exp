@@ -62,7 +62,7 @@ void CppOut::writeType(const Type* type)
     switch (type->getCategory()) {
         case Type::Category::Fundamental:
             using FundamentalTypeId = FundamentalType::FundamentalTypeId;
-            switch (static_cast<const FundamentalType*>(type)->getId()) {
+            switch (type->as<FundamentalType>()->getId()) {
                 case FundamentalTypeId::Void: write("void"); break;
                 case FundamentalTypeId::Char: write(is_unsigned_v<char> ? "signed char" : "char"); break;
                 case FundamentalTypeId::UnsignedChar: write("unsigned char"); break;
@@ -87,7 +87,7 @@ void CppOut::writeType(const Type* type)
             break;
         case Type::Category::Function: write("??functiontype??"); break; // TODO
         case Type::Category::Pointer:
-            writeType(static_cast<const PointerType*>(type)->getElementType());
+            writeType(type->as<PointerType>()->getElementType());
             write("*");
             break;
     }
@@ -104,103 +104,121 @@ std::string CppOut::returnTypeName(const FunctionDeclaration& decl, unsigned slo
 void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool inHeader)
 // Generate code for a declaration
 {
-    if (gdecl.isFunction()) {
-        auto& decl = static_cast<const FunctionDeclaration&>(gdecl);
-        auto& o = decl.accessOverload(slot);
-        advance(o.loc);
-        auto type = o.type;
-        if (type->returnValues.empty()) {
-            write("[[nodiscard]] void");
-        } else if ((type->returnValues.size() == 1) && (type->returnValues[0].first.empty())) {
-            writeType(type->returnValues[0].second);
-        } else {
-            auto n = returnTypeName(decl, slot);
-            if (inHeader) {
-                write("struct ", n, " {");
-                bool first = true;
-                for (auto& e : type->returnValues) {
-                    if (first)
-                        first = false;
-                    else
-                        write(", ");
-                    writeType(e.second);
-                    write(" ", e.first);
-                };
-                write("};");
-            }
-            write("[[nodiscard]] ", n);
-        }
-        write(" ", decl.getName(), "(");
-        bool first = true, hasForward = false;
-        for (auto& p : type->parameter) {
-            if (first)
-                first = false;
-            else
-                write(", ");
-            using Direction = FunctionType::ParameterDirection;
-            switch (p.direction) {
-                case Direction::In:
-                    write("cpp2::in<");
-                    writeType(p.type);
-                    write(">");
-                    break;
-                case Direction::Out:
-                    write("cpp2::out<");
-                    writeType(p.type);
-                    write(">");
-                    break;
-                case Direction::Inout:
-                    writeType(p.type);
-                    write("&");
-                    break;
-                case Direction::Move:
-                    writeType(p.type);
-                    write("&&");
-                    break;
-                case Direction::Forward:
-                    hasForward = true;
-                    write("auto&&");
-                    break;
-                case Direction::Copy:
-                    writeType(p.type);
-                    break;
-            }
-            write(" ", p.name);
-        }
-        write(")");
-        if (inHeader) {
-            write(";\n");
-        } else {
-            if (hasForward) {
-                write("\n requires ");
-                first = true;
-                for (auto& p : type->parameter) {
-                    if (p.direction == FunctionType::ParameterDirection::Forward) {
+    switch (gdecl.getCategory()) {
+        case Declaration::Category::Function: {
+            auto& decl = static_cast<const FunctionDeclaration&>(gdecl);
+            auto& o = decl.accessOverload(slot);
+            advance(o.loc);
+            auto type = o.type;
+            if (type->returnValues.empty()) {
+                write("[[nodiscard]] void");
+            } else if ((type->returnValues.size() == 1) && (type->returnValues[0].first.empty())) {
+                writeType(type->returnValues[0].second);
+            } else {
+                auto n = returnTypeName(decl, slot);
+                if (inHeader) {
+                    write("struct ", n, " {");
+                    bool first = true;
+                    for (auto& e : type->returnValues) {
                         if (first)
                             first = false;
                         else
-                            write(" && ");
-                        write("std::is_same_v<CPP2_TYPEOF(", p.name, "), ");
-                        writeType(p.type);
-                        write(")");
-                    }
+                            write(", ");
+                        writeType(e.second);
+                        write(" ", e.first);
+                    };
+                    write("};");
                 }
-                write("\n");
+                write("[[nodiscard]] ", n);
             }
-            generateStatement(*o.statement);
+            write(" ", decl.getName(), "(");
+            bool first = true, hasForward = false;
+            for (auto& p : type->parameter) {
+                if (first)
+                    first = false;
+                else
+                    write(", ");
+                using Direction = FunctionType::ParameterDirection;
+                switch (p.direction) {
+                    case Direction::In:
+                        write("cpp2::in<");
+                        writeType(p.type);
+                        write(">");
+                        break;
+                    case Direction::Out:
+                        write("cpp2::out<");
+                        writeType(p.type);
+                        write(">");
+                        break;
+                    case Direction::Inout:
+                        writeType(p.type);
+                        write("&");
+                        break;
+                    case Direction::Move:
+                        writeType(p.type);
+                        write("&&");
+                        break;
+                    case Direction::Forward:
+                        hasForward = true;
+                        write("auto&&");
+                        break;
+                    case Direction::Copy:
+                        writeType(p.type);
+                        break;
+                }
+                write(" ", p.name);
+            }
+            write(")");
+            if (inHeader) {
+                write(";\n");
+            } else {
+                if (hasForward) {
+                    write("\n requires ");
+                    first = true;
+                    for (auto& p : type->parameter) {
+                        if (p.direction == FunctionType::ParameterDirection::Forward) {
+                            if (first)
+                                first = false;
+                            else
+                                write(" && ");
+                            write("std::is_same_v<CPP2_TYPEOF(", p.name, "), ");
+                            writeType(p.type);
+                            write(")");
+                        }
+                    }
+                    write("\n");
+                }
+                generateStatement(*o.statement);
+            }
+            break;
         }
-    } else if (gdecl.getCategory() == Declaration::Category::Namespace) {
-        if (slot == 0) {
-            advance(gdecl.getLocation());
-            write("namespace ", gdecl.getName(), " {");
-        } else if (slot == 1) {
-            write("}");
+        case Declaration::Category::Namespace: {
+            if (slot == 0) {
+                advance(gdecl.getLocation());
+                write("namespace ", gdecl.getName(), " {");
+            } else if (slot == 1) {
+                write("}");
+            }
+            break;
         }
-    } else if (inHeader) {
-        // TODO
-        write("??? ");
-        write(gdecl.getName());
-        write(";\n");
+        case Declaration::Category::Variable: {
+            if (inHeader) {
+                // TODO
+                write("??? ");
+                write(gdecl.getName());
+                write(";\n");
+            }
+            break;
+        }
+        case Declaration::Category::Typedef: {
+            if (inHeader) {
+                advance(gdecl.getLocation());
+                write("using ", gdecl.getName(), " =");
+                writeType(static_cast<const TypedefDeclaration&>(gdecl).getType()->getEffectiveType());
+                write(";");
+            }
+            break;
+        }
     }
 }
 //---------------------------------------------------------------------------

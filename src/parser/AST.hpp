@@ -71,6 +71,7 @@ class AST {
         UnnamedDeclaration,
         UnqualifiedId,
         Using,
+        UsingDecltype,
         WhileStatement
     };
 

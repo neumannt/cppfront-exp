@@ -15,6 +15,7 @@ class Expression;
 class FunctionType;
 class Namespace;
 class Statement;
+class Type;
 //---------------------------------------------------------------------------
 /// A function id
 struct FunctionId {
@@ -60,7 +61,8 @@ class Declaration {
     enum class Category {
         Variable,
         Function,
-        Namespace
+        Namespace,
+        Typedef
     };
 
     private:
@@ -156,6 +158,24 @@ class NamespaceDeclaration : public Declaration {
 
     /// Get the contained namespace
     Namespace* getNamespace() { return ns.get(); }
+};
+//---------------------------------------------------------------------------
+/// A typedef declaration declaration
+class TypedefDeclaration : public Declaration {
+    /// The new type
+    std::unique_ptr<Type> newType;
+
+    public:
+    /// Constructor
+    TypedefDeclaration(SourceLocation loc, std::string name, const Type* originalType);
+    /// Destructor
+    ~TypedefDeclaration();
+
+    /// Get the declaration category
+    Category getCategory() const override { return Category::Typedef; };
+
+    /// Get the new type
+    const Type* getType() const { return newType.get(); }
 };
 //---------------------------------------------------------------------------
 }

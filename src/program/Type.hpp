@@ -5,6 +5,7 @@
 // (c) 2022 Thomas Neumann
 // SPDX-License-Identifier: MIT
 //---------------------------------------------------------------------------
+#include <memory>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
@@ -57,6 +58,8 @@ class Type {
     protected:
     /// The containing program
     Program* program;
+    /// The effective type
+    const Type* effectiveType;
 
     /// Constructor
     explicit Type(Program* program);
@@ -65,8 +68,12 @@ class Type {
     /// Destructor
     virtual ~Type();
 
+    /// Get the containing program
+    Program* getProgram() const { return program; }
     /// Get the type category
     virtual Category getCategory() const = 0;
+    /// Is a typedef?
+    virtual bool isTypedef() const { return false; }
     /// Is a function type?
     bool isFunctionType() const { return getCategory() == Category::Function; }
     /// Is a function type?
@@ -75,11 +82,14 @@ class Type {
     bool isPointerType() const { return getCategory() == Category::Pointer; }
 
     /// Get the effective type. Resolves typedefs if needed
-    const Type* getEffectiveType() const;
+    const Type* getEffectiveType() const { return effectiveType; }
     /// Check if two types are equivalent. This resolves typedefs if needed
     bool isEquivalentTo(const Type* o) const;
     /// Get a pointer to the current type
     const Type* getPointerTo() const;
+    /// Cast as a subclass
+    template <class T>
+    const T* as() const { return static_cast<const T*>(effectiveType); }
 
     /// Get a fundamental type
     static const Type* getFundamentalType(Program& program, FundamentalTypeId id);
@@ -147,12 +157,26 @@ class PointerType : public Type {
 
     public:
     /// Constructor
-    PointerType(Program* program, const Type* elementType) : Type(program), elementType(elementType) {}
+    PointerType(Program* program, const Type* elementType, const Type* et) : Type(program), elementType(elementType) {
+        if (et) effectiveType = et;
+    }
 
     /// Get the category
     Category getCategory() const override { return Category::Pointer; }
     /// Get the element type
     const Type* getElementType() const { return elementType; }
+};
+//---------------------------------------------------------------------------
+/// An alias type
+class AliasType : public Type {
+    public:
+    /// Constructor
+    AliasType(Program* program, const Type* originalType) : Type(program) { effectiveType = originalType->getEffectiveType(); }
+
+    /// Get the category
+    Category getCategory() const override { return effectiveType->getCategory(); }
+    /// Is a typedef?
+    bool isTypedef() const override { return true; }
 };
 //---------------------------------------------------------------------------
 }

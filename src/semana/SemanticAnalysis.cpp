@@ -170,16 +170,16 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
 
     // Standard conversions
     if (tb->isPointerType()) {
-        if (ta->isFundamentalType() && (static_cast<const FundamentalType*>(tb)->getId() == Type::FundamentalTypeId::NullptrType))
+        if (ta->isFundamentalType() && (tb->as<FundamentalType>()->getId() == Type::FundamentalTypeId::NullptrType))
             return true;
         // TODO handle const
     } else if (tb->isFundamentalType()) {
-        auto ib = static_cast<const FundamentalType*>(tb)->getId();
+        auto ib = tb->as<FundamentalType>()->getId();
         if (ib == Type::FundamentalTypeId::Bool) {
             if (ta->isPointerType()) return true;
         }
         if (ta->isFundamentalType()) {
-            auto ia = static_cast<const FundamentalType*>(ta)->getId();
+            auto ia = ta->as<FundamentalType>()->getId();
             // So far all conversions are valid as long as both are not void
             if ((ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void) && (ia != Type::FundamentalTypeId::NullptrType) && (ib != Type::FundamentalTypeId::NullptrType))
                 return true;
@@ -480,8 +480,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
     const Type* rightType = right->getType();
     FundamentalTypeId leftId = FundamentalTypeId::Void, rightId = FundamentalTypeId::Void;
     if (leftType->isFundamentalType() && rightType->isFundamentalType()) {
-        leftId = static_cast<const FundamentalType*>(leftType)->getId();
-        rightId = static_cast<const FundamentalType*>(rightType)->getId();
+        leftId = leftType->as<FundamentalType>()->getId();
+        rightId = rightType->as<FundamentalType>()->getId();
 
         // Promote to integer
         if ((leftId >= FundamentalTypeId::Char) && (leftId <= FundamentalTypeId::Int)) leftId = FundamentalTypeId::Int;
@@ -953,6 +953,33 @@ bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phas
     return true;
 }
 //---------------------------------------------------------------------------
+bool SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype)
+// Analyze a typedef
+{
+    if (phase != Phase::Declarations) return true;
+
+    auto name = extractIdentifier(ast->get(0, AST::Identifier));
+    const Type* type;
+    if (!usingDecltype) {
+        if (!(type = analyzeTypeIdExpression(ast->getAny(1)))) return false;
+    } else {
+        Scope innerScope(scope); // TODO set to ignore lifetime checks
+        auto e = analyzeExpression(innerScope, ast->getAny(1));
+        if (!e) return false;
+        type = e->getType();
+    }
+    auto decl = scope.getCurrentNamespace()->findDeclaration(name);
+    if (!decl) {
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<TypedefDeclaration>(mapping.getBegin(ast->getRange()), string(name), type));
+    } else {
+        return addError(ast, "duplicate definition");
+    }
+
+    if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 0);
+
+    return true;
+}
+//---------------------------------------------------------------------------
 bool SemanticAnalysis::analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase)
 // Analyze a parse tree
 {
@@ -966,7 +993,10 @@ bool SemanticAnalysis::analyzeDeclarations(Scope& scope, const AST* declarations
                 if (!analyzeNamespace(scope, d, phase)) return false;
                 break;
             case AST::Type::Class: return addError(d, "class not implemented yet");
-            case AST::Type::Using: return addError(d, "using not implemented yet");
+            case AST::Type::Using:
+            case AST::Type::UsingDecltype:
+                if (!analyzeUsing(scope, d, phase, d->getType() == AST::Type::UsingDecltype)) return false;
+                break;
             case AST::Type::Template: return addError(d, "template not implemented yet");
             default: return addError(d, "invalid AST");
         }
