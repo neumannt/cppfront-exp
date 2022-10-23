@@ -6,11 +6,13 @@
 // SPDX-License-Identifier: MIT
 //---------------------------------------------------------------------------
 #include "parser/Range.hpp"
+#include <functional>
 #include <memory>
 #include <vector>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
+class Class;
 class Expression;
 class FunctionType;
 class Namespace;
@@ -18,29 +20,43 @@ class Statement;
 class Type;
 //---------------------------------------------------------------------------
 /// A function id
-struct FunctionId {
+struct DeclarationId {
     /// Known categories
     enum Category {
         Regular,
         OperatorAnd,
-        OperatorOr,
         OperatorBitAnd,
+        OperatorBitAndEq,
         OperatorBitOr,
+        OperatorBitOrEq,
         OperatorBitXor,
+        OperatorBitXorEq,
+        OperatorComplement,
+        OperatorDiv,
+        OperatorDivEq,
         OperatorEqual,
-        OperatorNotEqual,
-        OperatorLess,
-        OperatorLessEq,
         OperatorGreater,
         OperatorGreaterEq,
-        OperatorSpaceship,
         OperatorLeftShift,
-        OperatorRightShift,
-        OperatorPlus,
+        OperatorLeftShiftEq,
+        OperatorLess,
+        OperatorLessEq,
         OperatorMinus,
+        OperatorMinusEq,
+        OperatorMinusMinus,
+        OperatorModulo,
+        OperatorModuloEq,
         OperatorMul,
-        OperatorDiv,
-        OperatorModulo
+        OperatorMulEq,
+        OperatorNot,
+        OperatorNotEqual,
+        OperatorOr,
+        OperatorPlus,
+        OperatorPlusEq,
+        OperatorPlusPlus,
+        OperatorRightShift,
+        OperatorRightShiftEq,
+        OperatorSpaceship
     };
 
     /// The name (if any)
@@ -49,9 +65,11 @@ struct FunctionId {
     Category category;
 
     /// Construct a regular function
-    FunctionId(std::string name) : name(std::move(name)), category(Regular) {}
+    DeclarationId(std::string name) : name(std::move(name)), category(Regular) {}
     /// Construct a special operator function
-    FunctionId(Category category) : category(category) {}
+    DeclarationId(Category category) : category(category) {}
+
+    auto operator<=>(const DeclarationId&) const = default;
 };
 //---------------------------------------------------------------------------
 /// A declaration within a namespace
@@ -62,6 +80,7 @@ class Declaration {
         Variable,
         Function,
         Namespace,
+        Class,
         Typedef
     };
 
@@ -69,18 +88,18 @@ class Declaration {
     /// The source location (for pretty printing)
     SourceLocation loc;
     /// The name
-    std::string name;
+    DeclarationId name;
 
     public:
     /// Constructor
-    Declaration(SourceLocation loc, std::string name);
+    Declaration(SourceLocation loc, DeclarationId name);
     /// Destructor
     ~Declaration();
 
     /// Get the location
     auto& getLocation() const { return loc; }
     /// Get the name
-    std::string_view getName() const { return name; }
+    auto& getName() const { return name; }
 
     /// Get the declaration category
     virtual Category getCategory() const = 0;
@@ -92,7 +111,7 @@ class Declaration {
 class VariableDeclaration : public Declaration {
     public:
     /// Constructor
-    VariableDeclaration(SourceLocation loc, std::string name);
+    VariableDeclaration(SourceLocation loc, DeclarationId name);
     /// Destructor
     ~VariableDeclaration();
 
@@ -123,7 +142,7 @@ class FunctionDeclaration : public Declaration {
 
     public:
     /// Constructor
-    FunctionDeclaration(SourceLocation loc, std::string name);
+    FunctionDeclaration(SourceLocation loc, DeclarationId name);
     /// Destructor
     ~FunctionDeclaration();
 
@@ -149,7 +168,7 @@ class NamespaceDeclaration : public Declaration {
 
     public:
     /// Constructor
-    NamespaceDeclaration(SourceLocation loc, std::string name);
+    NamespaceDeclaration(SourceLocation loc, DeclarationId name);
     /// Destructor
     ~NamespaceDeclaration();
 
@@ -160,6 +179,24 @@ class NamespaceDeclaration : public Declaration {
     Namespace* getNamespace() { return ns.get(); }
 };
 //---------------------------------------------------------------------------
+/// A class declaration
+class ClassDeclaration : public Declaration {
+    /// The underlying class
+    std::unique_ptr<Class> cl;
+
+    public:
+    /// Constructor
+    ClassDeclaration(SourceLocation loc, DeclarationId name);
+    /// Destructor
+    ~ClassDeclaration();
+
+    /// Get the declaration category
+    Category getCategory() const override { return Category::Class; };
+
+    /// Get the contained class
+    Class* getClass() { return cl.get(); }
+};
+//---------------------------------------------------------------------------
 /// A typedef declaration declaration
 class TypedefDeclaration : public Declaration {
     /// The new type
@@ -167,7 +204,7 @@ class TypedefDeclaration : public Declaration {
 
     public:
     /// Constructor
-    TypedefDeclaration(SourceLocation loc, std::string name, const Type* originalType);
+    TypedefDeclaration(SourceLocation loc, DeclarationId name, const Type* originalType);
     /// Destructor
     ~TypedefDeclaration();
 
@@ -179,5 +216,11 @@ class TypedefDeclaration : public Declaration {
 };
 //---------------------------------------------------------------------------
 }
+//---------------------------------------------------------------------------
+/// Hasher
+template <>
+struct std::hash<cpp2exp::DeclarationId> {
+    std::size_t operator()(const cpp2exp::DeclarationId& id) const noexcept;
+};
 //---------------------------------------------------------------------------
 #endif

@@ -16,10 +16,10 @@ Namespace::Namespace(string name)
 Namespace::~Namespace() {
 }
 //---------------------------------------------------------------------------
-Declaration* Namespace::findDeclaration(std::string_view name)
+Declaration* Namespace::findDeclaration(const DeclarationId& name)
 // Find a declaration within the namespace
 {
-    auto iter = declarations.find(string(name));
+    auto iter = declarations.find(name);
     if (iter == declarations.end()) return nullptr;
     return iter->second.get();
 }

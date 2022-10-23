@@ -159,6 +159,49 @@ string_view SemanticAnalysis::extractIdentifier(const AST* ast)
     return accessText(ast);
 }
 //---------------------------------------------------------------------------
+DeclarationId SemanticAnalysis::extractDeclarationId(const AST* ast)
+// Extract a function if
+{
+    if (ast->getType() == AST::OperatorName) {
+        switch (ast->getSubType<ast::OperatorName>()) {
+            case ast::OperatorName::BitAnd: return DeclarationId(DeclarationId::Category::OperatorBitAnd);
+            case ast::OperatorName::BitAndEq: return DeclarationId(DeclarationId::Category::OperatorBitAndEq);
+            case ast::OperatorName::BitOr: return DeclarationId(DeclarationId::Category::OperatorBitOr);
+            case ast::OperatorName::BitOrEq: return DeclarationId(DeclarationId::Category::OperatorBitOrEq);
+            case ast::OperatorName::BitXor: return DeclarationId(DeclarationId::Category::OperatorBitXor);
+            case ast::OperatorName::BitXorEq: return DeclarationId(DeclarationId::Category::OperatorBitXorEq);
+            case ast::OperatorName::Complement: return DeclarationId(DeclarationId::Category::OperatorComplement);
+            case ast::OperatorName::Div: return DeclarationId(DeclarationId::Category::OperatorDiv);
+            case ast::OperatorName::DivEq: return DeclarationId(DeclarationId::Category::OperatorDivEq);
+            case ast::OperatorName::Equal: return DeclarationId(DeclarationId::Category::OperatorEqual);
+            case ast::OperatorName::Greater: return DeclarationId(DeclarationId::Category::OperatorGreater);
+            case ast::OperatorName::GreaterEq: return DeclarationId(DeclarationId::Category::OperatorGreaterEq);
+            case ast::OperatorName::LeftShift: return DeclarationId(DeclarationId::Category::OperatorLeftShift);
+            case ast::OperatorName::LeftShiftEq: return DeclarationId(DeclarationId::Category::OperatorLeftShiftEq);
+            case ast::OperatorName::Less: return DeclarationId(DeclarationId::Category::OperatorLess);
+            case ast::OperatorName::LessEq: return DeclarationId(DeclarationId::Category::OperatorLessEq);
+            case ast::OperatorName::LogicalAnd: return DeclarationId(DeclarationId::Category::OperatorAnd);
+            case ast::OperatorName::LogicalOr: return DeclarationId(DeclarationId::Category::OperatorOr);
+            case ast::OperatorName::Minus: return DeclarationId(DeclarationId::Category::OperatorMinus);
+            case ast::OperatorName::MinusEq: return DeclarationId(DeclarationId::Category::OperatorMinusEq);
+            case ast::OperatorName::MinusMinus: return DeclarationId(DeclarationId::Category::OperatorMinusMinus);
+            case ast::OperatorName::Modulo: return DeclarationId(DeclarationId::Category::OperatorModulo);
+            case ast::OperatorName::ModuloEq: return DeclarationId(DeclarationId::Category::OperatorModuloEq);
+            case ast::OperatorName::Mul: return DeclarationId(DeclarationId::Category::OperatorMul);
+            case ast::OperatorName::MulEq: return DeclarationId(DeclarationId::Category::OperatorMulEq);
+            case ast::OperatorName::Not: return DeclarationId(DeclarationId::Category::OperatorNot);
+            case ast::OperatorName::NotEqual: return DeclarationId(DeclarationId::Category::OperatorNotEqual);
+            case ast::OperatorName::Plus: return DeclarationId(DeclarationId::Category::OperatorPlus);
+            case ast::OperatorName::PlusEq: return DeclarationId(DeclarationId::Category::OperatorPlusEq);
+            case ast::OperatorName::PlusPlus: return DeclarationId(DeclarationId::Category::OperatorPlusPlus);
+            case ast::OperatorName::RightShift: return DeclarationId(DeclarationId::Category::OperatorRightShift);
+            case ast::OperatorName::RightShiftEq: return DeclarationId(DeclarationId::Category::OperatorRightShiftEq);
+            case ast::OperatorName::Spaceship: return DeclarationId(DeclarationId::Category::OperatorSpaceship);
+        }
+    }
+    return DeclarationId(string(extractIdentifier(ast)));
+}
+//---------------------------------------------------------------------------
 bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, [[maybe_unused]] bool explicitScope)
 // Make sure an expression is convertible into a certain type
 {
@@ -191,7 +234,7 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     return false;
 }
 //---------------------------------------------------------------------------
-const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, [[maybe_unused]] const FunctionId& id, [[maybe_unused]] const Expression& left, [[maybe_unused]] const Expression& right)
+const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, [[maybe_unused]] const DeclarationId& id, [[maybe_unused]] const Expression& left, [[maybe_unused]] const Expression& right)
 // Try to resolve an operator
 {
     return nullptr; // TODO
@@ -368,90 +411,90 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
     auto loc = mapping.getBegin(ast->getRange());
     auto subType = ast->getSubType<ast::BinaryExpression>();
     BinaryExpression::Op op;
-    FunctionId::Category id;
+    DeclarationId::Category id;
     bool isCmp = false;
     switch (subType) {
         case ast::BinaryExpression::LogicalAnd:
             op = BinaryExpression::LogicalAnd;
-            id = FunctionId::OperatorAnd;
+            id = DeclarationId::OperatorAnd;
             break;
         case ast::BinaryExpression::LogicalOr:
             op = BinaryExpression::LogicalOr;
-            id = FunctionId::OperatorOr;
+            id = DeclarationId::OperatorOr;
             break;
         case ast::BinaryExpression::BitAnd:
             op = BinaryExpression::BitAnd;
-            id = FunctionId::OperatorBitAnd;
+            id = DeclarationId::OperatorBitAnd;
             break;
         case ast::BinaryExpression::BitOr:
             op = BinaryExpression::BitOr;
-            id = FunctionId::OperatorBitOr;
+            id = DeclarationId::OperatorBitOr;
             break;
         case ast::BinaryExpression::BitXor:
             op = BinaryExpression::BitXor;
-            id = FunctionId::OperatorBitXor;
+            id = DeclarationId::OperatorBitXor;
             break;
         case ast::BinaryExpression::Equal:
             op = BinaryExpression::Equal;
-            id = FunctionId::OperatorEqual;
+            id = DeclarationId::OperatorEqual;
             isCmp = true;
             break;
         case ast::BinaryExpression::NotEqual:
             op = BinaryExpression::NotEqual;
-            id = FunctionId::OperatorNotEqual;
+            id = DeclarationId::OperatorNotEqual;
             isCmp = true;
             break;
         case ast::BinaryExpression::Less:
             op = BinaryExpression::Less;
-            id = FunctionId::OperatorLess;
+            id = DeclarationId::OperatorLess;
             isCmp = true;
             break;
         case ast::BinaryExpression::LessEq:
             op = BinaryExpression::LessEq;
-            id = FunctionId::OperatorLessEq;
+            id = DeclarationId::OperatorLessEq;
             isCmp = true;
             break;
         case ast::BinaryExpression::Greater:
             op = BinaryExpression::Greater;
-            id = FunctionId::OperatorGreater;
+            id = DeclarationId::OperatorGreater;
             isCmp = true;
             break;
         case ast::BinaryExpression::GreaterEq:
             op = BinaryExpression::GreaterEq;
-            id = FunctionId::OperatorGreaterEq;
+            id = DeclarationId::OperatorGreaterEq;
             isCmp = true;
             break;
         case ast::BinaryExpression::Spaceship:
             op = BinaryExpression::Spaceship;
-            id = FunctionId::OperatorSpaceship;
+            id = DeclarationId::OperatorSpaceship;
             break;
         case ast::BinaryExpression::LeftShift:
             op = BinaryExpression::LeftShift;
-            id = FunctionId::OperatorLeftShift;
+            id = DeclarationId::OperatorLeftShift;
             break;
         case ast::BinaryExpression::RightShift:
             op = BinaryExpression::RightShift;
-            id = FunctionId::OperatorRightShift;
+            id = DeclarationId::OperatorRightShift;
             break;
         case ast::BinaryExpression::Plus:
             op = BinaryExpression::Plus;
-            id = FunctionId::OperatorPlus;
+            id = DeclarationId::OperatorPlus;
             break;
         case ast::BinaryExpression::Minus:
             op = BinaryExpression::Minus;
-            id = FunctionId::OperatorMinus;
+            id = DeclarationId::OperatorMinus;
             break;
         case ast::BinaryExpression::Mul:
             op = BinaryExpression::Mul;
-            id = FunctionId::OperatorMul;
+            id = DeclarationId::OperatorMul;
             break;
         case ast::BinaryExpression::Div:
             op = BinaryExpression::Div;
-            id = FunctionId::OperatorDiv;
+            id = DeclarationId::OperatorDiv;
             break;
         case ast::BinaryExpression::Modulo:
             op = BinaryExpression::Modulo;
-            id = FunctionId::OperatorModulo;
+            id = DeclarationId::OperatorModulo;
             break;
         case ast::BinaryExpression::Is: addError(ast, "is not implemented yet"); return {}; // TODO
         case ast::BinaryExpression::As: addError(ast, "as not implemented yet"); return {}; // TODO
@@ -464,13 +507,13 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
     if (!right) return {};
 
     // Check for overloaded operators
-    FunctionId fid(id);
+    DeclarationId fid(id);
     const Type* match = resolveOperator(scope, fid, *left, *right);
     if (match) return make_unique<BinaryExpression>(loc, match, op, move(left), move(right));
 
     // In case of comparisons, try again with spaceship
     if (isCmp) {
-        match = resolveOperator(scope, FunctionId::OperatorSpaceship, *left, *right);
+        match = resolveOperator(scope, DeclarationId::OperatorSpaceship, *left, *right);
         if (match) return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
     }
 
@@ -520,11 +563,11 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::BitXor:
         case BinaryExpression::LeftShift:
             op = BinaryExpression::LeftShift;
-            id = FunctionId::OperatorLeftShift;
+            id = DeclarationId::OperatorLeftShift;
             break;
         case BinaryExpression::RightShift:
             op = BinaryExpression::RightShift;
-            id = FunctionId::OperatorRightShift;
+            id = DeclarationId::OperatorRightShift;
             break;
             if ((leftType == rightType) && Type::isInteger(leftId)) return make_unique<BinaryExpression>(loc, leftType, op, move(left), move(right));
             break;
@@ -803,16 +846,25 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
                 case ast::ParameterDirection::Forward: pa.direction = FunctionType::ParameterDirection::Forward; break;
             }
         }
-        auto d = p->get(1, AST::Declaration);
-        pa.name = extractIdentifier(d->getAny(0));
+        auto d = p->getOrNull(1, AST::Declaration);
         unique_ptr<Expression> defaultArgument;
-        if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
+        if (d) {
+            pa.name = extractIdentifier(d->getAny(0));
+            if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
+        } else {
+            if (slot) {
+                addError(p, "this must be the first argument");
+                return nullptr;
+            }
+            pa.name = "this";
+        }
         if (defaultArguments) {
             if (defaultArgument) {
                 if (defaultArguments->empty()) *defaultArgumentsOffset = slot;
                 defaultArguments->push_back(move(defaultArgument));
             } else if (!defaultArguments->empty()) {
                 addError(p, "default argument missing");
+                return nullptr;
             }
         }
         parameter.push_back(move(pa));
@@ -861,7 +913,7 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
 // Analyze a declaration
 {
     auto loc = mapping.getBegin(declaration->getRange());
-    auto name = extractIdentifier(declaration->get(0, AST::Identifier));
+    auto name = extractDeclarationId(declaration->getAny(0));
     auto details = declaration->get(1, AST::UnnamedDeclaration);
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
 
@@ -873,9 +925,9 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
             return addError(declaration, "duplicate definition");
     } else {
         if (isFunction) {
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, string(name)));
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, move(name)));
         } else {
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, string(name)));
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name)));
         }
     }
 
@@ -903,7 +955,7 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
 bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 // Analyze a definition
 {
-    auto name = extractIdentifier(declaration->get(0, AST::Identifier));
+    DeclarationId name = string(extractIdentifier(declaration->get(0, AST::Identifier)));
     auto details = declaration->get(1, AST::UnnamedDeclaration);
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
 
@@ -933,10 +985,10 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phase)
 // Analyze a namespace
 {
-    auto name = extractIdentifier(ast->get(0, AST::Identifier));
+    DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
-        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<NamespaceDeclaration>(mapping.getBegin(ast->getRange()), string(name)));
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<NamespaceDeclaration>(mapping.getBegin(ast->getRange()), name));
     } else if (decl->getCategory() != Declaration::Category::Namespace) {
         return addError(ast, "duplicate definition");
     }
@@ -953,12 +1005,40 @@ bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phas
     return true;
 }
 //---------------------------------------------------------------------------
+bool SemanticAnalysis::analyzeClass(Scope& scope, const AST* ast, Phase phase)
+// Analyze a class definition
+{
+    DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
+    auto decl = scope.getCurrentNamespace()->findDeclaration(name);
+    if (!decl) {
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<ClassDeclaration>(mapping.getBegin(ast->getRange()), name));
+    } else if (phase == Phase::Declarations) {
+        return addError(ast, "duplicate definition");
+    }
+    if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 0);
+
+    if (ast->getAnyOrNull(1)) {
+        // TODO
+        return addError(ast, "inheritance not implemented yet");
+    }
+
+    {
+        Scope innerScope(scope);
+        innerScope.setCurrentNamespace(static_cast<ClassDeclaration*>(decl)->getClass());
+        if (!analyzeDeclarations(innerScope, ast->getAnyOrNull(2), phase)) return false;
+    }
+
+    if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 1);
+
+    return true;
+}
+//---------------------------------------------------------------------------
 bool SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype)
 // Analyze a typedef
 {
     if (phase != Phase::Declarations) return true;
 
-    auto name = extractIdentifier(ast->get(0, AST::Identifier));
+    DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     const Type* type;
     if (!usingDecltype) {
         if (!(type = analyzeTypeIdExpression(ast->getAny(1)))) return false;
@@ -970,7 +1050,7 @@ bool SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, b
     }
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
-        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<TypedefDeclaration>(mapping.getBegin(ast->getRange()), string(name), type));
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<TypedefDeclaration>(mapping.getBegin(ast->getRange()), name, type));
     } else {
         return addError(ast, "duplicate definition");
     }
@@ -992,7 +1072,9 @@ bool SemanticAnalysis::analyzeDeclarations(Scope& scope, const AST* declarations
             case AST::Type::Namespace:
                 if (!analyzeNamespace(scope, d, phase)) return false;
                 break;
-            case AST::Type::Class: return addError(d, "class not implemented yet");
+            case AST::Type::Class:
+                if (!analyzeClass(scope, d, phase)) return false;
+                break;
             case AST::Type::Using:
             case AST::Type::UsingDecltype:
                 if (!analyzeUsing(scope, d, phase, d->getType() == AST::Type::UsingDecltype)) return false;

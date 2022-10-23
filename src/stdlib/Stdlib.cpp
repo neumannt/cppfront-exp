@@ -21,6 +21,29 @@ namespace std {
 
 using nullpt_t = decltype(nullptr);
 
+// A simple iostream emulation for the test programs
+
+class endl_type {}
+endl : endl_type;
+
+class ostream {
+   operator <<: (this, v:char) -> ostream;
+   operator <<: (this, v:short) -> ostream;
+   operator <<: (this, v:unsigned short) -> ostream;
+   operator <<: (this, v:int) -> ostream;
+   operator <<: (this, v:unsigned int) -> ostream;
+   operator <<: (this, v:long) -> ostream;
+   operator <<: (this, v:unsigned long) -> ostream;
+   operator <<: (this, v:long long) -> ostream;
+   operator <<: (this, v:unsigned long long) -> ostream;
+   operator <<: (this, v:double) -> ostream;
+   operator <<: (this, v:*char) -> ostream;
+   operator <<: (this, v:endl_type) -> ostream;
+}
+
+cout : ostream;
+cerr : ostream;
+
 }
 
 )stdlib";

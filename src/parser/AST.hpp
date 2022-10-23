@@ -48,6 +48,7 @@ class AST {
         NestedNameSpecifier,
         NestedNameSpecifierList,
         NewExpression,
+        OperatorName,
         ParameterDeclaration,
         ParameterDeclarationList,
         ParameterDeclarationSeq,
@@ -247,6 +248,41 @@ enum TypeModifier {
 };
 enum QualifiedId { Nested,
                    Member };
+enum class OperatorName {
+    BitAnd,
+    BitAndEq,
+    BitOr,
+    BitOrEq,
+    BitXor,
+    BitXorEq,
+    Complement,
+    Div,
+    DivEq,
+    Equal,
+    Greater,
+    GreaterEq,
+    LeftShift,
+    LeftShiftEq,
+    Less,
+    LessEq,
+    LogicalAnd,
+    LogicalOr,
+    Minus,
+    MinusEq,
+    MinusMinus,
+    Modulo,
+    ModuloEq,
+    Mul,
+    MulEq,
+    Not,
+    NotEqual,
+    Plus,
+    PlusEq,
+    PlusPlus,
+    RightShift,
+    RightShiftEq,
+    Spaceship
+};
 //---------------------------------------------------------------------------
 }
 }

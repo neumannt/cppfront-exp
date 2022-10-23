@@ -43,6 +43,8 @@ parameter_declaration_seq
 
 parameter_declaration
 <- d:parameter_direction? p:declaration_param { $$ = auxil->ast(AST::ParameterDeclaration, {$0s, $0e}, d, p); }
+ ## extensions to mock existing C++1 code
+ / d:parameter_direction? kw_this { $$ = auxil->ast(AST::ParameterDeclaration, {$0s, $0e}, d, nullptr); }
 
 parameter_direction
 <- skw_in _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::In, {$0s, $0e}); }
@@ -78,6 +80,8 @@ unnamed_declaration
 <- ':' !':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
  / ':' !':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
  / ':' !':' _ t:type_id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+ ## extensions to mock existing C++1 code
+ / ':' !':' _ t:function_type _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, nullptr); }
 
 unnamed_declaration_param
 <- ':' !':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
@@ -159,8 +163,10 @@ fundamental_type
 declaration
 <- i:identifier _ d:unnamed_declaration { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
  ## extensions to mock existing C++1 code
+ / kw_operator _ i:operator_name _ d:unnamed_declaration { $$ = auxil->ast(AST::Declaration, {$0s, $0e}, i, d); }
  / kw_namespace _ i:identifier _ '{' _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, i, nullptr); }
  / kw_namespace _ i:identifier _ '{' _ n:declaration_seq _ '}' { $$ = auxil->ast(AST::Namespace, {$0s, $0e}, i, n); }
+ / kw_class _ i:identifier (_ ':' _ p:identifier)? _ '{' _ '}' { $$ = auxil->ast(AST::Class, {$0s, $0e}, i, p, nullptr); }
  / kw_class _ i:identifier (_ ':' _ p:identifier)? _ '{' _ b:declaration_seq _ '}' { $$ = auxil->ast(AST::Class, {$0s, $0e}, i, p, b); }
  / kw_using _ i:identifier _ '=' _ t:id_expression _ ';' { $$ = auxil->ast(AST::Using, {$0s, $0e}, i, t); }
  / kw_using _ i:identifier _ '=' _ kw_decltype _ '(' e:expression _ ')' _ ';' { $$ = auxil->ast(AST::UsingDecltype, {$0s, $0e}, i, e); }
@@ -652,6 +658,41 @@ preprocessor
 template_declaration_list
 <- l:template_declaration_list _ ',' e:identifier { $$ = auxil->appendList(AST::TemplateDeclarationList, {$0s, $0e}, l, e); }
  / e:identifier { $$ = auxil->buildList(AST::TemplateDeclarationList, {$0s, $0e}, e); }
+
+operator_name
+<- at_and { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::LogicalAnd, {$0s, $0e}); }
+ / at_or { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::LogicalOr, {$0s, $0e}); }
+ / at_bitand { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::BitAnd, {$0s, $0e}); }
+ / at_bitor { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::BitOr, {$0s, $0e}); }
+ / at_xor { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::BitXor, {$0s, $0e}); }
+ / at_compl { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Complement, {$0s, $0e}); }
+ / at_not { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Not, {$0s, $0e}); }
+ / at_and_eq { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::BitAndEq, {$0s, $0e}); }
+ / at_or_eq { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::BitOrEq, {$0s, $0e}); }
+ / at_xor_eq { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::BitXorEq, {$0s, $0e}); }
+ / '<<=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::LeftShiftEq, {$0s, $0e}); }
+ / '<<' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::LeftShift, {$0s, $0e}); }
+ / '>>=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::RightShiftEq, {$0s, $0e}); }
+ / '>>' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::RightShift, {$0s, $0e}); }
+ / '++' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::PlusPlus, {$0s, $0e}); }
+ / '+=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::PlusEq, {$0s, $0e}); }
+ / '+' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Plus, {$0s, $0e}); }
+ / '--' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::MinusMinus, {$0s, $0e}); }
+ / '-=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::MinusEq, {$0s, $0e}); }
+ / '-' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Minus, {$0s, $0e}); }
+ / '*=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::MulEq, {$0s, $0e}); }
+ / '*' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Mul, {$0s, $0e}); }
+ / '/=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::DivEq, {$0s, $0e}); }
+ / '/' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Div, {$0s, $0e}); }
+ / '%=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::ModuloEq, {$0s, $0e}); }
+ / '%' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Modulo, {$0s, $0e}); }
+ / '<=>' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Spaceship, {$0s, $0e}); }
+ / '==' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Equal, {$0s, $0e}); }
+ / '!=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::NotEqual, {$0s, $0e}); }
+ / '<=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::LessEq, {$0s, $0e}); }
+ / '<' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Less, {$0s, $0e}); }
+ / '>=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::GreaterEq, {$0s, $0e}); }
+ / '>' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Greater, {$0s, $0e}); }
 
 %%
 

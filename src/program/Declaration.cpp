@@ -1,4 +1,5 @@
 #include "program/Declaration.hpp"
+#include "infra/Hash.hpp"
 #include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
 #include "program/Namespace.hpp"
@@ -10,16 +11,20 @@
 //---------------------------------------------------------------------------
 using namespace std;
 //---------------------------------------------------------------------------
+std::size_t std::hash<cpp2exp::DeclarationId>::operator()(const cpp2exp::DeclarationId& id) const noexcept {
+    return cpp2exp::Hash::hash({static_cast<unsigned>(id.category), cpp2exp::Hash::hashString(id.name)});
+}
+//---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-Declaration::Declaration(SourceLocation loc, string name)
+Declaration::Declaration(SourceLocation loc, DeclarationId name)
     : loc(loc), name(move(name)) {
 }
 //---------------------------------------------------------------------------
 Declaration::~Declaration() {
 }
 //---------------------------------------------------------------------------
-VariableDeclaration::VariableDeclaration(SourceLocation loc, string name)
+VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name)
     : Declaration(loc, move(name))
 // Constructor
 {
@@ -30,7 +35,7 @@ VariableDeclaration::~VariableDeclaration()
 {
 }
 //---------------------------------------------------------------------------
-FunctionDeclaration::FunctionDeclaration(SourceLocation loc, string name)
+FunctionDeclaration::FunctionDeclaration(SourceLocation loc, DeclarationId name)
     : Declaration(loc, move(name))
 // Constructor
 {
@@ -65,8 +70,8 @@ unsigned FunctionDeclaration::addFunctionOverload(SourceLocation loc, const Func
     return overloads.size() - 1;
 }
 //---------------------------------------------------------------------------
-NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, string name)
-    : Declaration(loc, name), ns(make_unique<Namespace>(name))
+NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, DeclarationId name)
+    : Declaration(loc, name), ns(make_unique<Namespace>(name.name))
 // Constructor
 {
 }
@@ -76,7 +81,18 @@ NamespaceDeclaration::~NamespaceDeclaration()
 {
 }
 //---------------------------------------------------------------------------
-TypedefDeclaration::TypedefDeclaration(SourceLocation loc, string name, const Type* originalType)
+ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name)
+    : Declaration(loc, name), cl(make_unique<Class>(name.name))
+// Constructor
+{
+}
+//---------------------------------------------------------------------------
+ClassDeclaration::~ClassDeclaration()
+// Destructor
+{
+}
+//---------------------------------------------------------------------------
+TypedefDeclaration::TypedefDeclaration(SourceLocation loc, DeclarationId name, const Type* originalType)
     : Declaration(loc, move(name)), newType(make_unique<AliasType>(originalType->getProgram(), originalType))
 // Constructor
 {

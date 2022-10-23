@@ -19,7 +19,7 @@ class Namespace {
     /// The name
     std::string name;
     /// All declarations within the namespace
-    std::unordered_map<std::string, std::unique_ptr<Declaration>> declarations;
+    std::unordered_map<DeclarationId, std::unique_ptr<Declaration>> declarations;
 
     public:
     /// Constructor
@@ -28,9 +28,16 @@ class Namespace {
     ~Namespace();
 
     /// Find a declaration within the namespace
-    Declaration* findDeclaration(std::string_view name);
+    Declaration* findDeclaration(const DeclarationId& name);
     /// Create a new declaration
     Declaration* addDeclaration(std::unique_ptr<Declaration> decl);
+};
+//---------------------------------------------------------------------------
+/// A class is a special type of namespace
+class Class : public Namespace {
+    public:
+    /// Constructor
+    Class(std::string name) : Namespace(std::move(name)) {}
 };
 //---------------------------------------------------------------------------
 }

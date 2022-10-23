@@ -97,8 +97,8 @@ std::string CppOut::returnTypeName(const FunctionDeclaration& decl, unsigned slo
 // Get the name of the return type of a declaration with multiple return values
 {
     if (decl.getOverloadCount() > 1)
-        return "return_" + string(decl.getName()) + "_" + to_string(slot);
-    return "return_" + string(decl.getName());
+        return "return_" + decl.getName().name + "_" + to_string(slot);
+    return "return_" + decl.getName().name;
 }
 //---------------------------------------------------------------------------
 void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool inHeader)
@@ -131,7 +131,44 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
                 }
                 write("[[nodiscard]] ", n);
             }
-            write(" ", decl.getName(), "(");
+            write(" ");
+            switch (decl.getName().category) {
+                case DeclarationId::Category::Regular: write(decl.getName().name); break;
+                case DeclarationId::Category::OperatorAnd: write("operator &&"); break;
+                case DeclarationId::Category::OperatorBitAnd: write("operator &"); break;
+                case DeclarationId::Category::OperatorBitAndEq: write("operator &="); break;
+                case DeclarationId::Category::OperatorBitOr: write("operator |"); break;
+                case DeclarationId::Category::OperatorBitOrEq: write("operator |="); break;
+                case DeclarationId::Category::OperatorBitXor: write("operator ^"); break;
+                case DeclarationId::Category::OperatorBitXorEq: write("operator ^="); break;
+                case DeclarationId::Category::OperatorComplement: write("operator ~"); break;
+                case DeclarationId::Category::OperatorDiv: write("operator /"); break;
+                case DeclarationId::Category::OperatorDivEq: write("operator /="); break;
+                case DeclarationId::Category::OperatorEqual: write("operator =="); break;
+                case DeclarationId::Category::OperatorGreater: write("operator >"); break;
+                case DeclarationId::Category::OperatorGreaterEq: write("operator >="); break;
+                case DeclarationId::Category::OperatorLeftShift: write("operator <<"); break;
+                case DeclarationId::Category::OperatorLeftShiftEq: write("operator <<="); break;
+                case DeclarationId::Category::OperatorLess: write("operator <"); break;
+                case DeclarationId::Category::OperatorLessEq: write("operator <="); break;
+                case DeclarationId::Category::OperatorMinus: write("operator -"); break;
+                case DeclarationId::Category::OperatorMinusEq: write("operator -="); break;
+                case DeclarationId::Category::OperatorMinusMinus: write("operator --"); break;
+                case DeclarationId::Category::OperatorModulo: write("operator %"); break;
+                case DeclarationId::Category::OperatorModuloEq: write("operator %="); break;
+                case DeclarationId::Category::OperatorMul: write("operator *"); break;
+                case DeclarationId::Category::OperatorMulEq: write("operator *="); break;
+                case DeclarationId::Category::OperatorNot: write("operator !"); break;
+                case DeclarationId::Category::OperatorNotEqual: write("operator !="); break;
+                case DeclarationId::Category::OperatorOr: write("operator ||"); break;
+                case DeclarationId::Category::OperatorPlus: write("operator +"); break;
+                case DeclarationId::Category::OperatorPlusEq: write("operator +="); break;
+                case DeclarationId::Category::OperatorPlusPlus: write("operator ++"); break;
+                case DeclarationId::Category::OperatorRightShift: write("operator >>"); break;
+                case DeclarationId::Category::OperatorRightShiftEq: write("operator >>="); break;
+                case DeclarationId::Category::OperatorSpaceship: write("operator <=>"); break;
+            }
+            write("(");
             bool first = true, hasForward = false;
             for (auto& p : type->parameter) {
                 if (first)
@@ -195,7 +232,16 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
         case Declaration::Category::Namespace: {
             if (slot == 0) {
                 advance(gdecl.getLocation());
-                write("namespace ", gdecl.getName(), " {");
+                write("namespace ", gdecl.getName().name, " {");
+            } else if (slot == 1) {
+                write("}");
+            }
+            break;
+        }
+        case Declaration::Category::Class: {
+            if (slot == 0) {
+                advance(gdecl.getLocation());
+                write("class ", gdecl.getName().name, " {");
             } else if (slot == 1) {
                 write("}");
             }
@@ -205,7 +251,7 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
             if (inHeader) {
                 // TODO
                 write("??? ");
-                write(gdecl.getName());
+                write(gdecl.getName().name);
                 write(";\n");
             }
             break;
@@ -213,7 +259,7 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
         case Declaration::Category::Typedef: {
             if (inHeader) {
                 advance(gdecl.getLocation());
-                write("using ", gdecl.getName(), " =");
+                write("using ", gdecl.getName().name, " =");
                 writeType(static_cast<const TypedefDeclaration&>(gdecl).getType()->getEffectiveType());
                 write(";");
             }

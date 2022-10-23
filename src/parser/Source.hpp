@@ -43,6 +43,10 @@ class Source {
     /// Create an AST node
     AST* ast2(AST::Type type, unsigned subType, Range range);
     /// Create an AST node
+    template <class T>
+    requires(std::is_enum_v<T>)
+        AST* ast2(AST::Type type, T subType, Range range) { return ast2(type, static_cast<unsigned>(subType), range); }
+    /// Create an AST node
     AST* ast(AST::Type type, Range range, const AST* a1);
     /// Create an AST node
     AST* ast2(AST::Type type, unsigned subType, Range range, const AST* a1);
