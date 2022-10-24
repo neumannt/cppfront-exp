@@ -621,7 +621,7 @@ at_or_eq <- '|=' / atkw_or_eq
 atkw_xor <- 'xor' !(L/D)
 at_xor <- '^' (!'=') / atkw_xor
 atkw_xor_eq <- 'xor_eq' !(L/D)
-at_xor_eq <- '&&' / atkw_xor_eq
+at_xor_eq <- '^=' / atkw_xor_eq
 
 skw_pre <- 'pre' !(L/D)
 skw_post <- 'post' !(L/D)
