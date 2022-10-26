@@ -9,8 +9,8 @@ using namespace std;
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-Namespace::Namespace(string name)
-    : name(move(name)) {
+Namespace::Namespace(string name, Namespace* parent)
+    : name(move(name)), parent(parent) {
 }
 //---------------------------------------------------------------------------
 Namespace::~Namespace() {

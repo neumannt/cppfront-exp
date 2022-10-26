@@ -240,6 +240,82 @@ const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, [[m
     return nullptr; // TODO
 }
 //---------------------------------------------------------------------------
+Declaration* SemanticAnalysis::resolveUnqualifiedId(Scope& scope, const AST* ast)
+// Resolve an unqualified id
+{
+    auto subType = ast->getSubType<ast::UnqualifiedId>();
+    if (subType == ast::UnqualifiedId::Template) {
+        addError(ast, "templates not implemented yet"); // TODO
+        return nullptr;
+    }
+    auto name = DeclarationId(extractIdentifier(ast->get(0, AST::Identifier)));
+    auto ns = scope.getCurrentNamespace();
+    while (ns) {
+        auto d = ns->findDeclaration(name);
+        if (d) return d;
+        ns = ns->getParent();
+    }
+    addError(ast, "unknown type name '" + name.name + "'");
+    return nullptr;
+}
+//---------------------------------------------------------------------------
+Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
+// Resolve a qualified id
+{
+    if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested) {
+        addError(ast, "type name expected");
+        return nullptr;
+    }
+
+    // Interpret absolute path names
+    ast = ast->get(0, AST::NestedNameSpecifier);
+    Namespace* ns = scope.getCurrentNamespace();
+    if (ast->getSubType<ast::NestedNameSpecifier>() == ast::NestedNameSpecifier::Absolute)
+        ns = target->getGlobalNamespace();
+
+    // Collect all parts
+    vector<const AST*> parts;
+    for (auto e : ASTList(ast->getAnyOrNull(0))) parts.push_back(e);
+
+    // And resolve the path
+    for (auto e : parts) {
+        auto subType = e->getSubType<ast::UnqualifiedId>();
+        if (subType == ast::UnqualifiedId::Template) {
+            addError(ast, "templates not implemented yet"); // TODO
+            return nullptr;
+        }
+        auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
+
+        auto d = ns->findDeclaration(name);
+        if (!d) {
+            addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
+            return nullptr;
+        }
+        auto next = dynamic_cast<Namespace*>(d);
+        if (!next) {
+            addError(e, "'" + name.name + "' is not a namespace");
+            return nullptr;
+        }
+        ns = next;
+    }
+
+    // Lookup the element itself
+    auto e = ast->get(1, AST::UnqualifiedId);
+    auto subType = e->getSubType<ast::UnqualifiedId>();
+    if (subType == ast::UnqualifiedId::Template) {
+        addError(ast, "templates not implemented yet"); // TODO
+        return nullptr;
+    }
+    auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
+
+    auto d = ns->findDeclaration(name);
+    if (!d) {
+        addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
+        return nullptr;
+    }
+    return d;
+}
+//---------------------------------------------------------------------------
 std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint)
 // Analyze an expression
 {
@@ -676,7 +752,7 @@ std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, cons
     }
 }
 //---------------------------------------------------------------------------
-const Type* SemanticAnalysis::analyzeIdExpression(const AST* ast)
+const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
 // Analyze an id-expression with optional pointer markers
 {
     // Handle const
@@ -692,8 +768,16 @@ const Type* SemanticAnalysis::analyzeIdExpression(const AST* ast)
 
     // Interpret the type
     switch (ast->getType()) {
-        case AST::UnqualifiedId: addError(ast, "analyzeIdExpression of unqualified_id not implemented yet"); return nullptr; // TODO
-        case AST::QualifiedId: addError(ast, "analyzeIdExpression of qualified_id not implemented yet"); return nullptr; // TODO
+        case AST::UnqualifiedId:
+        case AST::QualifiedId: {
+            auto decl = (ast->getType() == AST::UnqualifiedId) ? resolveUnqualifiedId(scope, ast) : resolveQualifiedId(scope, ast);
+            if (!decl) return nullptr;
+            if (!decl->isType()) {
+                addError(ast, "invalid type expression");
+                return nullptr;
+            }
+            return decl->getCorrespondingType();
+        }
         case AST::FundamentalType: {
             switch (ast->getSubType<ast::FundamentalType>()) {
                 case ast::FundamentalType::Void: return Type::getVoid(*program);
@@ -771,21 +855,21 @@ const Type* SemanticAnalysis::analyzeIdExpression(const AST* ast)
     }
 }
 //---------------------------------------------------------------------------
-const Type* SemanticAnalysis::analyzeTypeIdExpression(const AST* ast)
+const Type* SemanticAnalysis::analyzeTypeIdExpression(Scope& scope, const AST* ast)
 // Analyze an id-expression with optional pointer markers
 {
     if (ast->getType() == AST::TypeModifier) {
         switch (ast->getSubType<ast::TypeModifier>()) {
             case ast::TypeModifier::Pointer: {
-                auto t = analyzeTypeIdExpression(ast->getAny(0));
+                auto t = analyzeTypeIdExpression(scope, ast->getAny(0));
                 return t ? t->getPointerTo() : nullptr;
             }
             case ast::TypeModifier::Const:
-                return analyzeIdExpression(ast);
+                return analyzeIdExpression(scope, ast);
         }
         return nullptr;
     } else {
-        return analyzeIdExpression(ast);
+        return analyzeIdExpression(scope, ast);
     }
 }
 //---------------------------------------------------------------------------
@@ -800,7 +884,7 @@ bool SemanticAnalysis::analyzeUnnamedDeclaration(Scope& scope, const AST* ast, c
     } else {
         *type = nullptr;
         if (ast->getAny(0)) {
-            if (!((*type = analyzeTypeIdExpression(ast->getAny(0)))))
+            if (!((*type = analyzeTypeIdExpression(scope, ast->getAny(0)))))
                 return false;
         } else if (!statement) {
             addError(ast, "a deduced type must have an = initializer");
@@ -875,7 +959,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
     vector<pair<string, const Type*>> returnTypes;
     if (returnList) {
         if (returnList->getSubType<ast::ReturnList>() == ast::ReturnList::Single) {
-            auto rt = analyzeIdExpression(returnList->getAny(0));
+            auto rt = analyzeIdExpression(scope, returnList->getAny(0));
             if (!rt) return nullptr;
             returnTypes.emplace_back(""sv, rt);
         } else {
@@ -988,7 +1072,7 @@ bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phas
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
-        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<NamespaceDeclaration>(mapping.getBegin(ast->getRange()), name));
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<NamespaceDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace()));
     } else if (decl->getCategory() != Declaration::Category::Namespace) {
         return addError(ast, "duplicate definition");
     }
@@ -1011,7 +1095,7 @@ bool SemanticAnalysis::analyzeClass(Scope& scope, const AST* ast, Phase phase)
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
-        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<ClassDeclaration>(mapping.getBegin(ast->getRange()), name));
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<ClassDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace()));
     } else if (phase == Phase::Declarations) {
         return addError(ast, "duplicate definition");
     }
@@ -1041,7 +1125,7 @@ bool SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, b
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     const Type* type;
     if (!usingDecltype) {
-        if (!(type = analyzeTypeIdExpression(ast->getAny(1)))) return false;
+        if (!(type = analyzeTypeIdExpression(scope, ast->getAny(1)))) return false;
     } else {
         Scope innerScope(scope); // TODO set to ignore lifetime checks
         auto e = analyzeExpression(innerScope, ast->getAny(1));

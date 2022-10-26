@@ -18,12 +18,14 @@ class Namespace {
     private:
     /// The name
     std::string name;
+    /// The parent namespace (if any)
+    Namespace* parent;
     /// All declarations within the namespace
     std::unordered_map<DeclarationId, std::unique_ptr<Declaration>> declarations;
 
     public:
     /// Constructor
-    Namespace(std::string name);
+    Namespace(std::string name, Namespace* parent);
     /// Destructor
     ~Namespace();
 
@@ -31,13 +33,18 @@ class Namespace {
     Declaration* findDeclaration(const DeclarationId& name);
     /// Create a new declaration
     Declaration* addDeclaration(std::unique_ptr<Declaration> decl);
+
+    /// Get the name
+    auto& getName() const { return name; }
+    /// Get the parent namespace
+    Namespace* getParent() const { return parent; }
 };
 //---------------------------------------------------------------------------
 /// A class is a special type of namespace
 class Class : public Namespace {
     public:
     /// Constructor
-    Class(std::string name) : Namespace(std::move(name)) {}
+    Class(std::string name, Namespace* parent) : Namespace(std::move(name), parent) {}
 };
 //---------------------------------------------------------------------------
 }

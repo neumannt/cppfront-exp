@@ -10,7 +10,7 @@ using namespace std;
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 Module::Module()
-    : globalNamespace(make_unique<Namespace>("")) {
+    : globalNamespace(make_unique<Namespace>("", nullptr)) {
 }
 //---------------------------------------------------------------------------
 Module::~Module() {

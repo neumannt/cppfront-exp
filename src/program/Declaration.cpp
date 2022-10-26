@@ -24,6 +24,12 @@ Declaration::Declaration(SourceLocation loc, DeclarationId name)
 Declaration::~Declaration() {
 }
 //---------------------------------------------------------------------------
+const Type* Declaration::getCorrespondingType() const
+// Get the corresponding type (if any)
+{
+    return nullptr;
+}
+//---------------------------------------------------------------------------
 VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name)
     : Declaration(loc, move(name))
 // Constructor
@@ -70,8 +76,8 @@ unsigned FunctionDeclaration::addFunctionOverload(SourceLocation loc, const Func
     return overloads.size() - 1;
 }
 //---------------------------------------------------------------------------
-NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, DeclarationId name)
-    : Declaration(loc, name), ns(make_unique<Namespace>(name.name))
+NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent)
+    : Declaration(loc, name), ns(make_unique<Namespace>(name.name, parent))
 // Constructor
 {
 }
@@ -81,8 +87,8 @@ NamespaceDeclaration::~NamespaceDeclaration()
 {
 }
 //---------------------------------------------------------------------------
-ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name)
-    : Declaration(loc, name), cl(make_unique<Class>(name.name))
+ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent)
+    : Declaration(loc, name), cl(make_unique<Class>(name.name, parent))
 // Constructor
 {
 }

@@ -14,6 +14,7 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 class AST;
 class Expression;
+class Declaration;
 class DeclarationId;
 class FunctionType;
 class Parser;
@@ -55,6 +56,10 @@ class SemanticAnalysis {
     bool enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
     /// Try to resolve an operator
     const Type* resolveOperator(Scope& scope, const DeclarationId& id, const Expression& left, const Expression& right);
+    /// Resolve an unqualified id
+    Declaration* resolveUnqualifiedId(Scope& scope, const AST* ast);
+    /// Resolve a qualified id
+    Declaration* resolveQualifiedId(Scope& scope, const AST* ast);
 
     /// Analyze an expression
     std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);
@@ -71,9 +76,9 @@ class SemanticAnalysis {
     /// Analyze a statement
     std::unique_ptr<Statement> analyzeStatement(Scope& scope, const AST* ast);
     /// Analyze an id-expression with optional pointer markers
-    const Type* analyzeIdExpression(const AST* ast);
+    const Type* analyzeIdExpression(Scope& scope, const AST* ast);
     /// Analyze an id-expression with optional pointer markers
-    const Type* analyzeTypeIdExpression(const AST* ast);
+    const Type* analyzeTypeIdExpression(Scope& scope, const AST* ast);
     /// Analyze an unnamed declaration
     bool analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
     /// Analyze a function type declaration

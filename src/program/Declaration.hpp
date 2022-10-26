@@ -66,6 +66,8 @@ struct DeclarationId {
 
     /// Construct a regular function
     DeclarationId(std::string name) : name(std::move(name)), category(Regular) {}
+    /// Construct a regular function
+    explicit DeclarationId(std::string_view name) : name(name), category(Regular) {}
     /// Construct a special operator function
     DeclarationId(Category category) : category(category) {}
 
@@ -94,7 +96,7 @@ class Declaration {
     /// Constructor
     Declaration(SourceLocation loc, DeclarationId name);
     /// Destructor
-    ~Declaration();
+    virtual ~Declaration();
 
     /// Get the location
     auto& getLocation() const { return loc; }
@@ -105,6 +107,10 @@ class Declaration {
     virtual Category getCategory() const = 0;
     /// Does this declaration describe a function?
     bool isFunction() const { return getCategory() == Category::Function; }
+    /// The this declaration describe a type?
+    bool isType() const { return getCategory() == Category::Class || getCategory() == Category::Typedef; }
+    /// Get the corresponding type (if any)
+    virtual const Type* getCorrespondingType() const;
 };
 //---------------------------------------------------------------------------
 /// A variable declaration
@@ -168,7 +174,7 @@ class NamespaceDeclaration : public Declaration {
 
     public:
     /// Constructor
-    NamespaceDeclaration(SourceLocation loc, DeclarationId name);
+    NamespaceDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent);
     /// Destructor
     ~NamespaceDeclaration();
 
@@ -186,7 +192,7 @@ class ClassDeclaration : public Declaration {
 
     public:
     /// Constructor
-    ClassDeclaration(SourceLocation loc, DeclarationId name);
+    ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent);
     /// Destructor
     ~ClassDeclaration();
 
@@ -213,6 +219,8 @@ class TypedefDeclaration : public Declaration {
 
     /// Get the new type
     const Type* getType() const { return newType.get(); }
+    /// Get the corresponding type (if any)
+    const Type* getCorrespondingType() const override { return getType(); }
 };
 //---------------------------------------------------------------------------
 }
