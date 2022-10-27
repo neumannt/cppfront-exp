@@ -1,5 +1,6 @@
 #include "program/Namespace.hpp"
 #include "program/Declaration.hpp"
+#include "program/Type.hpp"
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
@@ -31,6 +32,16 @@ Declaration* Namespace::addDeclaration(std::unique_ptr<Declaration> decl)
     auto d = decl.get();
     declarations.emplace(name, move(decl));
     return d;
+}
+//---------------------------------------------------------------------------
+Class::Class(std::string name, Namespace* parent, Program* program)
+    : Namespace(std::move(name), parent), type(make_unique<ClassType>(program, this))
+// Constructor
+{}
+//---------------------------------------------------------------------------
+Class::~Class()
+// Destructor
+{
 }
 //---------------------------------------------------------------------------
 }

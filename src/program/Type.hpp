@@ -9,6 +9,7 @@
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
+class Class;
 class Program;
 class Type;
 //---------------------------------------------------------------------------
@@ -20,7 +21,8 @@ class Type {
     enum class Category {
         Fundamental,
         Function,
-        Pointer
+        Pointer,
+        Class
     };
     /// Fundamental types
     enum class FundamentalTypeId {
@@ -165,6 +167,21 @@ class PointerType : public Type {
     Category getCategory() const override { return Category::Pointer; }
     /// Get the element type
     const Type* getElementType() const { return elementType; }
+};
+//---------------------------------------------------------------------------
+/// A class type
+class ClassType : public Type {
+    /// The class itself
+    const Class* cl;
+
+    public:
+    /// Constructor
+    ClassType(Program* program, const Class* cl) : Type(program), cl(cl) {}
+
+    /// Get the category
+    Category getCategory() const override { return Category::Class; }
+    /// Get the class type
+    const Class* getClass() const { return cl; }
 };
 //---------------------------------------------------------------------------
 /// An alias type

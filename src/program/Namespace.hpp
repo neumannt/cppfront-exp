@@ -27,7 +27,7 @@ class Namespace {
     /// Constructor
     Namespace(std::string name, Namespace* parent);
     /// Destructor
-    ~Namespace();
+    virtual ~Namespace();
 
     /// Find a declaration within the namespace
     Declaration* findDeclaration(const DeclarationId& name);
@@ -42,9 +42,17 @@ class Namespace {
 //---------------------------------------------------------------------------
 /// A class is a special type of namespace
 class Class : public Namespace {
+    /// The new type
+    std::unique_ptr<Type> type;
+
     public:
     /// Constructor
-    Class(std::string name, Namespace* parent) : Namespace(std::move(name), parent) {}
+    Class(std::string name, Namespace* parent, Program* program);
+    /// Destructor
+    ~Class();
+
+    /// Get the class type
+    const Type* getType() const { return type.get(); }
 };
 //---------------------------------------------------------------------------
 }

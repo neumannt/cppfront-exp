@@ -16,6 +16,7 @@ class Class;
 class Expression;
 class FunctionType;
 class Namespace;
+class Program;
 class Statement;
 class Type;
 //---------------------------------------------------------------------------
@@ -192,12 +193,14 @@ class ClassDeclaration : public Declaration {
 
     public:
     /// Constructor
-    ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent);
+    ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent, Program* program);
     /// Destructor
     ~ClassDeclaration();
 
     /// Get the declaration category
     Category getCategory() const override { return Category::Class; };
+    /// Get the corresponding type (if any)
+    const Type* getCorrespondingType() const override;
 
     /// Get the contained class
     Class* getClass() { return cl.get(); }

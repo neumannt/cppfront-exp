@@ -140,7 +140,7 @@ fundamental_type_modifier
 <- kw_unsigned { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Unsigned, {$0s, $0e}); }
  / kw_signed { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Signed, {$0s, $0e}); }
  / kw_long { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Long, {$0s, $0e}); }
- / kw_short { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Signed, {$0s, $0e}); }
+ / kw_short { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Short, {$0s, $0e}); }
 
 fundamental_type_modifier_list
 <- l:fundamental_type_modifier_list _ e:fundamental_type_modifier { $$ = auxil->appendList(AST::FundamentalTypeModifierList, {$0s, $0e}, l, e); }

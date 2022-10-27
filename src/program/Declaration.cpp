@@ -87,8 +87,8 @@ NamespaceDeclaration::~NamespaceDeclaration()
 {
 }
 //---------------------------------------------------------------------------
-ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent)
-    : Declaration(loc, name), cl(make_unique<Class>(name.name, parent))
+ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent, Program* program)
+    : Declaration(loc, name), cl(make_unique<Class>(name.name, parent, program))
 // Constructor
 {
 }
@@ -96,6 +96,12 @@ ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name, Names
 ClassDeclaration::~ClassDeclaration()
 // Destructor
 {
+}
+//---------------------------------------------------------------------------
+const Type* ClassDeclaration::getCorrespondingType() const
+// Get the corresponding type (if any)
+{
+    return cl->getType();
 }
 //---------------------------------------------------------------------------
 TypedefDeclaration::TypedefDeclaration(SourceLocation loc, DeclarationId name, const Type* originalType)

@@ -2,6 +2,7 @@
 #include "program/Declaration.hpp"
 #include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
+#include "program/Namespace.hpp"
 #include "program/Program.hpp"
 #include "program/Statement.hpp"
 //---------------------------------------------------------------------------
@@ -90,6 +91,11 @@ void CppOut::writeType(const Type* type)
             writeType(type->as<PointerType>()->getElementType());
             write("*");
             break;
+        case Type::Category::Class: {
+            const Class* cl = type->as<ClassType>()->getClass();
+            write(cl->getName()); // TODO handled namespaces
+            break;
+        }
     }
 }
 //---------------------------------------------------------------------------

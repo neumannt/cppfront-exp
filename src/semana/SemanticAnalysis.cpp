@@ -829,11 +829,11 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
                             case ast::FundamentalTypeModifier::Long:
                                 if (isShort || (isLong > 1)) return invalidModifier(m);
                                 ++isLong;
-                                return nullptr;
+                                break;
                             case ast::FundamentalTypeModifier::Short:
                                 if (isShort || isLong) return invalidModifier(m);
                                 isShort = true;
-                                return nullptr;
+                                break;
                         }
                     }
                     if (isUnsigned) {
@@ -940,7 +940,13 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
                 addError(p, "this must be the first argument");
                 return nullptr;
             }
+            auto cl = dynamic_cast<Class*>(scope.getCurrentNamespace());
+            if (!cl) {
+                addError(p, "member functions can only be declared inside classes");
+                return nullptr;
+            }
             pa.name = "this";
+            pa.type = cl->getType();
         }
         if (defaultArguments) {
             if (defaultArgument) {
@@ -1039,12 +1045,14 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
 bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 // Analyze a definition
 {
-    DeclarationId name = string(extractIdentifier(declaration->get(0, AST::Identifier)));
+    auto name = extractDeclarationId(declaration->getAny(0));
     auto details = declaration->get(1, AST::UnnamedDeclaration);
     bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
 
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (isFunction) {
+        if (inStdlib && (!details->getAnyOrNull(1))) return true;
+
         auto fdecl = static_cast<FunctionDeclaration*>(decl);
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr);
         auto overload = fdecl->findFunctionOverload(funcType);
@@ -1056,8 +1064,10 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         return !!(overload->statement);
     } else {
         // Declaration only?
-        if (!details->getAnyOrNull(1))
+        if (!details->getAnyOrNull(1)) {
+            if (inStdlib) return true;
             return addError(declaration, "a global declaration must be initialized");
+        }
 
         // TODO
         addError(declaration, "variable declarations not implemented yet");
@@ -1095,7 +1105,7 @@ bool SemanticAnalysis::analyzeClass(Scope& scope, const AST* ast, Phase phase)
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
-        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<ClassDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace()));
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<ClassDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace(), program.get()));
     } else if (phase == Phase::Declarations) {
         return addError(ast, "duplicate definition");
     }
