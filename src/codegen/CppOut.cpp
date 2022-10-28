@@ -303,6 +303,13 @@ void CppOut::generateStatement(const Statement& s)
             write(";");
             break;
         }
+        case Statement::Type::Expression: {
+            auto& e = static_cast<const ExpressionStatement&>(s);
+            advance(e.getBegin());
+            generateExpression(*e.getExpression());
+            write(";");
+            break;
+        }
     }
 }
 //---------------------------------------------------------------------------
@@ -363,6 +370,7 @@ void CppOut::generateExpression(const Expression& e)
     switch (e.getCategory()) {
         case Category::Literal: write(static_cast<const Literal&>(e).getText()); break;
         case Category::Binary: generateBinaryExpression(static_cast<const BinaryExpression&>(e)); break;
+        case Category::Variable: write(static_cast<const VariableExpression&>(e).getVariable()->getName().name); break;
     }
 }
 //---------------------------------------------------------------------------

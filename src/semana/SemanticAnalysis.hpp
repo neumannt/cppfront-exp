@@ -69,10 +69,14 @@ class SemanticAnalysis {
     std::unique_ptr<Expression> analyzeBinaryExpression(Scope& scope, const AST* ast);
     /// Analyze an expression list expression
     std::unique_ptr<Expression> analyzeExpressionListExpression(Scope& scope, const AST* ast, const Type* typeHint);
+    /// Analyze an id-expression that is part of an expression
+    std::unique_ptr<Expression> analyzeIdExpressionExpression(Scope& scope, const AST* ast);
     /// Analyze a compound statement
     std::unique_ptr<Statement> analyzeCompoundStatement(Scope& scope, const AST* ast);
     /// Analyze a return statement
     std::unique_ptr<Statement> analyzeReturnStatement(Scope& scope, const AST* ast);
+    /// Analyze an expression statement
+    std::unique_ptr<Statement> analyzeExpressionStatement(Scope& scope, const AST* ast);
     /// Analyze a statement
     std::unique_ptr<Statement> analyzeStatement(Scope& scope, const AST* ast);
     /// Analyze an id-expression with optional pointer markers

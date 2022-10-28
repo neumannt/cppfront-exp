@@ -268,20 +268,20 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
     }
 
     // Interpret absolute path names
-    ast = ast->get(0, AST::NestedNameSpecifier);
+    auto nast = ast->get(0, AST::NestedNameSpecifier);
     Namespace* ns = scope.getCurrentNamespace();
-    if (ast->getSubType<ast::NestedNameSpecifier>() == ast::NestedNameSpecifier::Absolute)
+    if (nast->getSubType<ast::NestedNameSpecifier>() == ast::NestedNameSpecifier::Absolute)
         ns = target->getGlobalNamespace();
 
     // Collect all parts
     vector<const AST*> parts;
-    for (auto e : ASTList(ast->getAnyOrNull(0))) parts.push_back(e);
+    for (auto e : ASTList(nast->getAnyOrNull(0))) parts.push_back(e);
 
     // And resolve the path
     for (auto e : parts) {
         auto subType = e->getSubType<ast::UnqualifiedId>();
         if (subType == ast::UnqualifiedId::Template) {
-            addError(ast, "templates not implemented yet"); // TODO
+            addError(e, "templates not implemented yet"); // TODO
             return nullptr;
         }
         auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
@@ -291,7 +291,12 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
             addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
             return nullptr;
         }
-        auto next = dynamic_cast<Namespace*>(d);
+        Namespace* next;
+        if (auto n = dynamic_cast<NamespaceDeclaration*>(d)) {
+            next = n->getNamespace();
+        } else if (auto c = dynamic_cast<ClassDeclaration*>(d)) {
+            next = c->getClass();
+        }
         if (!next) {
             addError(e, "'" + name.name + "' is not a namespace");
             return nullptr;
@@ -330,8 +335,8 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, co
         case AST::DotExpression: addError(ast, "dot_expression not implemented yet"); return {}; // TODO
         case AST::InspectExpression: addError(ast, "inspect_expression not implemented yet"); return {}; // TODO
         case AST::Literal: return analyzeLiteral(ast);
-        case AST::UnqualifiedId: addError(ast, "id_expression not implemented yet"); return {}; // TODO
-        case AST::QualifiedId: addError(ast, "id_expression not implemented yet"); return {}; // TODO
+        case AST::UnqualifiedId:
+        case AST::QualifiedId: return analyzeIdExpressionExpression(scope, ast);
         case AST::UnnamedDeclaration: addError(ast, "lambda expressions not implemented yet"); return {}; // TODO
         case AST::NewExpression: addError(ast, "new expressions not implemented yet"); return {}; // TODO
         default: addError(ast, "invalid AST"); return {};
@@ -686,6 +691,85 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpressionListExpression(Sc
     return analyzeExpression(scope, ast->getAny(0)->getAny(0));
 }
 //---------------------------------------------------------------------------
+unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& scope, const AST* ast)
+// Analyze an id expression that is part of an expression
+{
+    auto loc = mapping.getBegin(ast->getRange());
+    Namespace* ns = scope.getCurrentNamespace();
+    DeclarationId localId(""sv);
+    if (ast->getType() == AST::UnqualifiedId) {
+        auto subType = ast->getSubType<ast::UnqualifiedId>();
+        if (subType == ast::UnqualifiedId::Template) {
+            addError(ast, "templates not implemented yet"); // TODO
+            return {};
+        }
+        localId = DeclarationId(extractIdentifier(ast->get(0, AST::Identifier)));
+    } else {
+        if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested) {
+            addError(ast, "type name expected");
+            return {};
+        }
+
+        // Interpret absolute path names
+        auto nast = ast->get(0, AST::NestedNameSpecifier);
+        if (nast->getSubType<ast::NestedNameSpecifier>() == ast::NestedNameSpecifier::Absolute)
+            ns = target->getGlobalNamespace();
+
+        // Collect all parts
+        vector<const AST*> parts;
+        for (auto e : ASTList(nast->getAnyOrNull(0))) parts.push_back(e);
+
+        // And resolve the path
+        for (auto e : parts) {
+            auto subType = e->getSubType<ast::UnqualifiedId>();
+            if (subType == ast::UnqualifiedId::Template) {
+                addError(e, "templates not implemented yet"); // TODO
+                return nullptr;
+            }
+            auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
+
+            auto d = ns->findDeclaration(name);
+            if (!d) {
+                addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
+                return nullptr;
+            }
+            Namespace* next;
+            if (auto n = dynamic_cast<NamespaceDeclaration*>(d)) {
+                next = n->getNamespace();
+            } else if (auto c = dynamic_cast<ClassDeclaration*>(d)) {
+                next = c->getClass();
+            }
+            if (!next) {
+                addError(e, "'" + name.name + "' is not a namespace");
+                return nullptr;
+            }
+            ns = next;
+        }
+
+        // The last part of the path
+        auto e = ast->get(1, AST::UnqualifiedId);
+        auto subType = e->getSubType<ast::UnqualifiedId>();
+        if (subType == ast::UnqualifiedId::Template) {
+            addError(ast, "templates not implemented yet"); // TODO
+            return nullptr;
+        }
+        localId = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
+    }
+
+    // Lookup the element itself
+    auto d = ns->findDeclaration(localId);
+    if (!d) {
+        addError(ast, "'" + localId.name + "' not found in '" + ns->getName() + "'");
+        return {};
+    }
+    if (d->getCategory() != Declaration::Category::Variable) {
+        addError(ast, "'" + localId.name + "' is not a variable");
+        return {};
+    }
+    auto v = static_cast<VariableDeclaration*>(d);
+    return make_unique<VariableExpression>(loc, v->getType(), v);
+}
+//---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
 // Analyze a compound statement
 {
@@ -702,7 +786,7 @@ unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, c
 }
 //---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, const AST* ast)
-// Analyze a compound statement
+// Analyze a return statement
 {
     auto fs = scope.getCurrentFunction();
     if (!fs) {
@@ -735,6 +819,16 @@ unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, con
     return make_unique<ReturnStatement>(begin, move(arg));
 }
 //---------------------------------------------------------------------------
+unique_ptr<Statement> SemanticAnalysis::analyzeExpressionStatement(Scope& scope, const AST* ast)
+// Analyze an expression statement
+{
+    auto begin = mapping.getBegin(ast->getRange());
+    unique_ptr<Expression> arg = analyzeExpression(scope, ast->getAny(0));
+    if (!arg) return {};
+
+    return make_unique<ExpressionStatement>(begin, move(arg));
+}
+//---------------------------------------------------------------------------
 std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, const AST* ast)
 // Analyze a statement
 {
@@ -747,7 +841,7 @@ std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, cons
         case AST::DoWhileStatement: addError(ast, "do_while_statement not implemented yet"); return {}; // TODO
         case AST::ForStatement: addError(ast, "for_statement not implemented yet"); return {}; // TODO
         case AST::InspectExpression: addError(ast, "inspect_statment not implemented yet"); return {}; // TODO
-        case AST::ExpressionStatement: addError(ast, "expression_statement not implemented yet"); return {}; // TODO
+        case AST::ExpressionStatement: return analyzeExpressionStatement(scope, ast);
         default: addError(ast, "invalid AST"); return {};
     }
 }
@@ -1017,7 +1111,10 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
         if (isFunction) {
             decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, move(name)));
         } else {
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name)));
+            if (!details->getAnyOrNull(0)) return addError(declaration, "type required");
+            auto type = analyzeTypeIdExpression(scope, details->getAnyOrNull(0));
+            if (!type) return false;
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name), type));
         }
     }
 

@@ -30,8 +30,8 @@ const Type* Declaration::getCorrespondingType() const
     return nullptr;
 }
 //---------------------------------------------------------------------------
-VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name)
-    : Declaration(loc, move(name))
+VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name, const Type* type)
+    : Declaration(loc, move(name)), type(type)
 // Constructor
 {
 }

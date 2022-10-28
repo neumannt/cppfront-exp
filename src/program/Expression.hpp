@@ -11,6 +11,7 @@
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 class Type;
+class VariableDeclaration;
 //---------------------------------------------------------------------------
 /// Base class for all expressions
 class Expression {
@@ -18,7 +19,8 @@ class Expression {
     /// Expression categories
     enum class Category {
         Literal,
-        Binary
+        Binary,
+        Variable
     };
     /// Precedence levels
     enum class Precedence {
@@ -124,6 +126,24 @@ class BinaryExpression : public Expression {
     Category getCategory() const override { return Category::Binary; }
     /// Get the expression precedence (for printing)
     Precedence getPrecedence() const override;
+};
+//---------------------------------------------------------------------------
+/// A variable reference
+class VariableExpression : public Expression {
+    protected:
+    /// The variable
+    VariableDeclaration* decl;
+
+    public:
+    /// Constructor
+    VariableExpression(SourceLocation loc, const Type* type, VariableDeclaration* decl) : Expression(loc, type), decl(decl) {}
+
+    /// Get the expression category
+    Category getCategory() const override { return Category::Variable; }
+    /// Get the expression precedence (for printing)
+    Precedence getPrecedence() const override { return Precedence::Primary; }
+    /// Get the variable
+    auto getVariable() const { return decl; }
 };
 //---------------------------------------------------------------------------
 }

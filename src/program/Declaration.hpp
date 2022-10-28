@@ -116,14 +116,19 @@ class Declaration {
 //---------------------------------------------------------------------------
 /// A variable declaration
 class VariableDeclaration : public Declaration {
+    /// The data type
+    const Type* type;
+
     public:
     /// Constructor
-    VariableDeclaration(SourceLocation loc, DeclarationId name);
+    VariableDeclaration(SourceLocation loc, DeclarationId name, const Type* type);
     /// Destructor
     ~VariableDeclaration();
 
     /// Get the declaration category
     Category getCategory() const override { return Category::Variable; };
+    /// Get the type
+    const Type* getType() const { return type; }
 };
 //---------------------------------------------------------------------------
 /// A function declaration

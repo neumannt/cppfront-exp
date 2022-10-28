@@ -20,7 +20,8 @@ class Statement {
     /// Types of statements
     enum class Type {
         Compound,
-        Return
+        Return,
+        Expression
     };
 
     /// Constructor
@@ -70,6 +71,27 @@ class ReturnStatement : public Statement {
 
     /// Get the statement type
     Type getType() const override { return Type::Return; }
+    /// Get the begin location
+    auto getBegin() const { return begin; }
+    /// Access the value to return (if any)
+    auto& getExpression() const { return exp; }
+};
+//---------------------------------------------------------------------------
+/// An expression statement
+class ExpressionStatement : public Statement {
+    /// The original source location (for pretty printing)
+    SourceLocation begin;
+    /// The value to return (if any)
+    std::unique_ptr<Expression> exp;
+
+    public:
+    /// Constructor
+    ExpressionStatement(SourceLocation begin, std::unique_ptr<Expression>&& exp) : begin(begin), exp(std::move(exp)) {}
+    /// Destructor
+    ~ExpressionStatement();
+
+    /// Get the statement type
+    Type getType() const override { return Type::Expression; }
     /// Get the begin location
     auto getBegin() const { return begin; }
     /// Access the value to return (if any)
