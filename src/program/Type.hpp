@@ -76,22 +76,34 @@ class Type {
     virtual Category getCategory() const = 0;
     /// Is a typedef?
     virtual bool isTypedef() const { return false; }
+    /// Is a const type?
+    virtual bool isConst() const { return false; }
     /// Is a function type?
     bool isFunctionType() const { return getCategory() == Category::Function; }
     /// Is a function type?
     bool isFundamentalType() const { return getCategory() == Category::Fundamental; }
     /// Is a function type?
     bool isPointerType() const { return getCategory() == Category::Pointer; }
+    /// Is a class type?
+    bool isClassType() const { return getCategory() == Category::Class; }
 
     /// Get the effective type. Resolves typedefs if needed
     const Type* getEffectiveType() const { return effectiveType; }
+    /// Get the underlying type. Resolves typdefs and strips const
+    const Type* getUnderlyingType() const;
     /// Check if two types are equivalent. This resolves typedefs if needed
     bool isEquivalentTo(const Type* o) const;
     /// Get a pointer to the current type
     const Type* getPointerTo() const;
+    /// Get as const type
+    const Type* getAsConst() const;
+    /// Get as non-const type
+    const Type* getAsNonConst() const;
+    /// Get with the correct constenss
+    const Type* withConst(bool isConst) const { return isConst ? getAsConst() : getAsNonConst(); }
     /// Cast as a subclass
     template <class T>
-    const T* as() const { return static_cast<const T*>(effectiveType); }
+    const T* as() const { return static_cast<const T*>(getUnderlyingType()); }
 
     /// Get a fundamental type
     static const Type* getFundamentalType(Program& program, FundamentalTypeId id);
@@ -194,6 +206,25 @@ class AliasType : public Type {
     Category getCategory() const override { return effectiveType->getCategory(); }
     /// Is a typedef?
     bool isTypedef() const override { return true; }
+};
+//---------------------------------------------------------------------------
+/// A const type
+class ConstType : public Type {
+    /// The base type
+    const Type* baseType;
+
+    public:
+    /// Constructor
+    ConstType(Program* program, const Type* baseType, const Type* et) : Type(program), baseType(baseType) {
+        if (et) effectiveType = et;
+    }
+
+    /// Get the category
+    Category getCategory() const override { return baseType->getCategory(); }
+    /// Is a const type?
+    bool isConst() const override { return true; }
+    /// Get the base type
+    const Type* getBaseType() const { return baseType; }
 };
 //---------------------------------------------------------------------------
 }

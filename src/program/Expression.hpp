@@ -13,6 +13,13 @@ namespace cpp2exp {
 class Type;
 class VariableDeclaration;
 //---------------------------------------------------------------------------
+/// The value category
+enum class ValueCategory : unsigned {
+    Prvalue,
+    Xvalue,
+    Lvalue
+};
+//---------------------------------------------------------------------------
 /// Base class for all expressions
 class Expression {
     public:
@@ -37,15 +44,25 @@ class Expression {
         Multiplicative,
         Primary
     };
+    using ValueCategory = cpp2exp::ValueCategory;
+    /// The characteristics of an expression
+    struct Characteristics {
+        /// The type
+        const Type* type;
+        /// The value category
+        ValueCategory category;
+    };
 
     protected:
     /// The original position in the source code
     SourceLocation loc;
     /// The result type
     const Type* type;
+    /// The value category
+    ValueCategory valueCategory;
 
     /// Constructor
-    Expression(SourceLocation loc, const Type* type) : loc(loc), type(type) {}
+    Expression(SourceLocation loc, const Type* type, ValueCategory valueCategory) : loc(loc), type(type), valueCategory(valueCategory) {}
 
     public:
     /// Destructor
@@ -59,6 +76,10 @@ class Expression {
     SourceLocation getLocation() const { return loc; }
     /// Get the result type
     const Type* getType() const { return type; }
+    /// Get the value category
+    ValueCategory getValueCategory() const { return valueCategory; }
+    /// Get the characteristics of the expression
+    Characteristics getCharacteristics() const { return {getType(), getValueCategory()}; }
 };
 //---------------------------------------------------------------------------
 /// A literal
@@ -69,7 +90,7 @@ class Literal : public Expression {
 
     public:
     /// Constructor
-    Literal(SourceLocation loc, const Type* type, std::string_view text) : Expression(loc, type), text(text) {}
+    Literal(SourceLocation loc, const Type* type, std::string_view text) : Expression(loc, type, ValueCategory::Prvalue), text(text) {}
 
     /// Get the expression category
     Category getCategory() const override { return Category::Literal; }
@@ -113,7 +134,7 @@ class BinaryExpression : public Expression {
 
     public:
     /// Constructor
-    BinaryExpression(SourceLocation loc, const Type* type, Op op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right) : Expression(loc, type), op(op), left(std::move(left)), right(std::move(right)) {}
+    BinaryExpression(SourceLocation loc, const Type* type, ValueCategory valueCategory, Op op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right) : Expression(loc, type, valueCategory), op(op), left(std::move(left)), right(std::move(right)) {}
 
     /// Get the operation
     Op getOp() const { return op; }
@@ -136,7 +157,7 @@ class VariableExpression : public Expression {
 
     public:
     /// Constructor
-    VariableExpression(SourceLocation loc, const Type* type, VariableDeclaration* decl) : Expression(loc, type), decl(decl) {}
+    VariableExpression(SourceLocation loc, const Type* type, VariableDeclaration* decl) : Expression(loc, type, ValueCategory::Lvalue), decl(decl) {}
 
     /// Get the expression category
     Category getCategory() const override { return Category::Variable; }

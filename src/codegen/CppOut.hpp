@@ -14,6 +14,8 @@ class BinaryExpression;
 class Declaration;
 class Expression;
 class FunctionDeclaration;
+class Module;
+class Namespace;
 class Program;
 class Statement;
 class Type;
@@ -24,6 +26,8 @@ class CppOut {
     std::ostream& out;
     /// The current position
     SourceLocation currentPos;
+    /// The current namespace
+    Namespace* currentNamespace;
     /// Include line information?
     bool writeLines;
     /// Are we generating the body?
@@ -39,6 +43,8 @@ class CppOut {
     void write(std::string_view a, std::string_view b, std::string_view c);
     /// Write a type
     void writeType(const Type* type);
+    /// Write a scoped name
+    void writeScopedName(Namespace* targetNamespace, std::string_view name);
 
     /// Get the name of the return type of a declaration with multiple return values
     std::string returnTypeName(const FunctionDeclaration& decl, unsigned slot);
@@ -57,7 +63,7 @@ class CppOut {
     explicit CppOut(std::ostream& out, bool writeLines) : out(out), currentPos({"", 1, 1}), writeLines(writeLines) {}
 
     /// Generate the C++1 code
-    void generate(const Program& prog);
+    void generate(const Program& prog, const Module& module);
 };
 //---------------------------------------------------------------------------
 }

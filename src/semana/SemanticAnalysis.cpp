@@ -234,9 +234,31 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     return false;
 }
 //---------------------------------------------------------------------------
-const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, [[maybe_unused]] const DeclarationId& id, [[maybe_unused]] const Expression& left, [[maybe_unused]] const Expression& right)
+const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right)
 // Try to resolve an operator
 {
+    // Prefer methods if any
+    auto leftType = left.getType();
+    if (leftType->isClassType()) {
+        auto ct = leftType->as<ClassType>();
+        auto cl = ct->getClass();
+        if (auto dec = cl->findWithInheritance(id)) {
+            array<CallArg, 2> args({{left.getType(), left.getValueCategory(), CallArg::Regular}, {right.getType(), right.getValueCategory(), CallArg::Regular}});
+            array<FunctionDeclaration*, 1> candidates({dec});
+            auto e = resolveCall(ast, candidates, args, false);
+            if (e.has_value()) {
+                auto ft = e->first->accessOverload(e->second).type;
+                if (ft->getReturnValues().size() != 1) {
+                    addError(ast, "operator must return a single value");
+                    return nullptr;
+                } else {
+                    return ft->getReturnValues()[0].second;
+                }
+            }
+        }
+    }
+
+    // Regular lookup
     return nullptr; // TODO
 }
 //---------------------------------------------------------------------------
@@ -319,6 +341,127 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
         return nullptr;
     }
     return d;
+}
+//---------------------------------------------------------------------------
+optional<pair<FunctionDeclaration*, unsigned>> SemanticAnalysis::resolveCall(const AST* ast, std::span<FunctionDeclaration*> candidates, std::span<const CallArg> args, bool reportErrors)
+// Find the function to call
+{
+    enum class Matching { Exact,
+                          Promotion,
+                          Conversion };
+    auto isNumerical = [](const Type* t) {
+        return t->isFundamentalType() && Type::isNumerical(static_cast<const FundamentalType*>(t)->getId());
+    };
+
+    FunctionDeclaration* bestCandidate = nullptr;
+    unsigned bestOverloadSlot = 0;
+    bool bestIsAmbiguous = false;
+    vector<Matching> bestMatching, currentMatching;
+    bestMatching.resize(args.size());
+    currentMatching.resize(args.size());
+    for (auto d : candidates) {
+        for (unsigned slot = 0, limit = d->getOverloadCount(); slot < limit; ++slot) {
+            auto& o = d->accessOverload(slot);
+            auto& p = o.type->getParameters();
+            if ((args.size() <= p.size()) && (args.size() + o.defaultArguments.size() >= p.size())) {
+                // Could be a candidate, check all arguments
+                bool match = true, dominate = false;
+                for (unsigned argSlot = 0; argSlot < p.size(); ++argSlot) {
+                    Matching matching;
+                    if ((p[argSlot].direction == FunctionType::ParameterDirection::Out) || (p[argSlot].direction == FunctionType::ParameterDirection::Inout)) {
+                        // For out and inout the type must match precisely and we need an lvalue
+                        if ((!p[argSlot].type->isEquivalentTo(args[argSlot].type)) || (args[argSlot].category != ValueCategory::Lvalue)) {
+                            match = false;
+                            break;
+                        }
+                        matching = Matching::Exact;
+                    } else {
+                        // Otherwise we have to consider type promotion
+                        if (p[argSlot].type->isEquivalentTo(args[argSlot].type)) {
+                            matching = Matching::Exact;
+                        } else if (isNumerical(p[argSlot].type) && isNumerical(args[argSlot].type)) {
+                            matching = Matching::Promotion;
+                        } else {
+                            // TODO consider type conversions
+                            match = false;
+                            break;
+                        }
+                    }
+
+                    // Compare with the best candidate so far
+                    if (bestCandidate && (bestMatching[argSlot] != matching)) {
+                        if (bestMatching[argSlot] < matching) {
+                            match = false;
+                            break;
+                        } else
+                            dominate = true;
+                    }
+                    currentMatching[argSlot] = matching;
+                }
+
+                if (match) {
+                    // We found a match
+                    if ((!bestCandidate) || dominate) {
+                        bestCandidate = d;
+                        bestOverloadSlot = slot;
+                        bestMatching = currentMatching;
+                        bestIsAmbiguous = false;
+                    } else {
+                        bestIsAmbiguous = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Did we find a candidate
+    if (bestCandidate) {
+        // Ambiguous?
+        if (bestIsAmbiguous) {
+            if (reportErrors) addError(ast, "call is ambiguous");
+            return nullopt;
+        }
+
+        // Check if the modifiers match
+        auto& o = bestCandidate->accessOverload(bestOverloadSlot);
+        for (unsigned index = 0, limit = args.size(); index < limit; ++index) {
+            switch (o.type->getParameters()[index].direction) {
+                case FunctionType::ParameterDirection::In:
+                case FunctionType::ParameterDirection::Inout:
+                    if (args[index].modifier == CallArg::Modifier::Out) {
+                        if (reportErrors) addError(ast, "modifier 'out' not allowed in argument " + to_string(index + 1));
+                        return nullopt;
+                    }
+                    if (args[index].modifier == CallArg::Modifier::Move) {
+                        if (reportErrors) addError(ast, "modifier 'move' not allowed in argument " + to_string(index + 1));
+                        return nullopt;
+                    }
+                    break;
+                case FunctionType::ParameterDirection::Out:
+                    if (args[index].modifier != CallArg::Modifier::Out) {
+                        if (reportErrors) addError(ast, "modifier 'out' required in argument " + to_string(index + 1));
+                        return nullopt;
+                    }
+                    break;
+                case FunctionType::ParameterDirection::Move:
+                    if (args[index].modifier != CallArg::Modifier::Move) {
+                        if (reportErrors) addError(ast, "modifier 'move' required in argument " + to_string(index + 1));
+                        return nullopt;
+                    }
+                    break;
+                case FunctionType::ParameterDirection::Copy:
+                case FunctionType::ParameterDirection::Forward:
+                    if (args[index].modifier == CallArg::Modifier::Out) {
+                        if (reportErrors) addError(ast, "modifier 'out' not allowed in argument " + to_string(index + 1));
+                        return nullopt;
+                    }
+                    break;
+            }
+        }
+        return make_pair(bestCandidate, bestOverloadSlot);
+    }
+
+    return nullopt;
 }
 //---------------------------------------------------------------------------
 std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint)
@@ -425,7 +568,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
         case ast::Literal::False: return make_unique<Literal>(loc, Type::getBool(*program), text);
         case ast::Literal::Nullptr: return make_unique<Literal>(loc, Type::getNullptrType(*program), text);
         case ast::Literal::CharLiteral: return make_unique<Literal>(loc, Type::getChar(*program), text);
-        case ast::Literal::StringLiteral: return make_unique<Literal>(loc, Type::getChar(*program)->getPointerTo(), text);
+        case ast::Literal::StringLiteral: return make_unique<Literal>(loc, Type::getChar(*program)->getAsConst()->getPointerTo(), text);
         case ast::Literal::DecimalInteger: {
             uint64_t v = 0;
             unsigned index = 0;
@@ -589,13 +732,13 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
 
     // Check for overloaded operators
     DeclarationId fid(id);
-    const Type* match = resolveOperator(scope, fid, *left, *right);
-    if (match) return make_unique<BinaryExpression>(loc, match, op, move(left), move(right));
+    const Type* match = resolveOperator(scope, ast, fid, *left, *right);
+    if (match) return make_unique<BinaryExpression>(loc, match, Expression::ValueCategory::Prvalue, op, move(left), move(right));
 
     // In case of comparisons, try again with spaceship
     if (isCmp) {
-        match = resolveOperator(scope, DeclarationId::OperatorSpaceship, *left, *right);
-        if (match) return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
+        match = resolveOperator(scope, ast, DeclarationId::OperatorSpaceship, *left, *right);
+        if (match) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
     }
 
     // The usual arithmetic conversions
@@ -638,7 +781,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::LogicalAnd:
         case BinaryExpression::LogicalOr:
             if ((!enforceConvertible(ast, left, Type::getBool(*program))) || (!enforceConvertible(ast, right, Type::getBool(*program)))) return {};
-            return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
+            return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
         case BinaryExpression::BitAnd:
         case BinaryExpression::BitOr:
         case BinaryExpression::BitXor:
@@ -650,7 +793,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
             op = BinaryExpression::RightShift;
             id = DeclarationId::OperatorRightShift;
             break;
-            if ((leftType == rightType) && Type::isInteger(leftId)) return make_unique<BinaryExpression>(loc, leftType, op, move(left), move(right));
+            if ((leftType == rightType) && Type::isInteger(leftId)) return make_unique<BinaryExpression>(loc, leftType, Expression::ValueCategory::Prvalue, op, move(left), move(right));
             break;
         case BinaryExpression::Equal:
         case BinaryExpression::NotEqual:
@@ -659,7 +802,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::Greater:
         case BinaryExpression::GreaterEq:
         case BinaryExpression::Spaceship:
-            if (((leftType == rightType) && leftType->isPointerType()) || ((Type::isNumerical(leftId) && Type::isNumerical(rightId)))) return make_unique<BinaryExpression>(loc, Type::getBool(*program), op, move(left), move(right));
+            if (((leftType == rightType) && leftType->isPointerType()) || ((Type::isNumerical(leftId) && Type::isNumerical(rightId)))) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
             break;
         case BinaryExpression::Plus:
         case BinaryExpression::Minus:
@@ -671,7 +814,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::Mul:
         case BinaryExpression::Div:
         case BinaryExpression::Modulo:
-            if ((leftType == rightType) && (Type::isNumerical(leftId))) return make_unique<BinaryExpression>(loc, leftType, op, move(left), move(right));
+            if ((leftType == rightType) && (Type::isNumerical(leftId))) return make_unique<BinaryExpression>(loc, leftType, Expression::ValueCategory::Prvalue, op, move(left), move(right));
             break;
     }
 
@@ -870,11 +1013,11 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
                 addError(ast, "invalid type expression");
                 return nullptr;
             }
-            return decl->getCorrespondingType();
+            return decl->getCorrespondingType()->withConst(isConst);
         }
         case AST::FundamentalType: {
             switch (ast->getSubType<ast::FundamentalType>()) {
-                case ast::FundamentalType::Void: return Type::getVoid(*program);
+                case ast::FundamentalType::Void: return Type::getVoid(*program)->withConst(isConst);
                 case ast::FundamentalType::Char: {
                     // char can be modified by signed and unsigned
                     bool isSigned = false, isUnsigned = false;
@@ -891,16 +1034,16 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
                         }
                     }
                     // by default we assume char is signed. Should we make this platform specific? Could also be handled when writing C++1 out
-                    return isUnsigned ? Type::getUnsignedChar(*program) : Type::getChar(*program);
+                    return (isUnsigned ? Type::getUnsignedChar(*program) : Type::getChar(*program))->withConst(isConst);
                 }
-                case ast::FundamentalType::Char8: return Type::getChar8(*program);
-                case ast::FundamentalType::Char16: return Type::getChar16(*program);
-                case ast::FundamentalType::Char32: return Type::getChar32(*program);
-                case ast::FundamentalType::WChar: return Type::getWChar(*program);
-                case ast::FundamentalType::Bool: return Type::getBool(*program);
-                case ast::FundamentalType::Float: return Type::getFloat(*program);
-                case ast::FundamentalType::Double: return Type::getDouble(*program);
-                case ast::FundamentalType::LongDouble: return Type::getLongDouble(*program);
+                case ast::FundamentalType::Char8: return Type::getChar8(*program)->withConst(isConst);
+                case ast::FundamentalType::Char16: return Type::getChar16(*program)->withConst(isConst);
+                case ast::FundamentalType::Char32: return Type::getChar32(*program)->withConst(isConst);
+                case ast::FundamentalType::WChar: return Type::getWChar(*program)->withConst(isConst);
+                case ast::FundamentalType::Bool: return Type::getBool(*program)->withConst(isConst);
+                case ast::FundamentalType::Float: return Type::getFloat(*program)->withConst(isConst);
+                case ast::FundamentalType::Double: return Type::getDouble(*program)->withConst(isConst);
+                case ast::FundamentalType::LongDouble: return Type::getLongDouble(*program)->withConst(isConst);
                 case ast::FundamentalType::Int: {
                     // Int can be modified by short/long/long long/signed/unsigned, in any order
                     bool isSigned = false, isUnsigned = false;
@@ -931,15 +1074,15 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
                         }
                     }
                     if (isUnsigned) {
-                        if (isShort) return Type::getUnsignedShort(*program);
-                        if (isLong > 1) return Type::getUnsignedLongLong(*program);
-                        if (isLong) return Type::getUnsignedLong(*program);
-                        return Type::getUnsignedInt(*program);
+                        if (isShort) return Type::getUnsignedShort(*program)->withConst(isConst);
+                        if (isLong > 1) return Type::getUnsignedLongLong(*program)->withConst(isConst);
+                        if (isLong) return Type::getUnsignedLong(*program)->withConst(isConst);
+                        return Type::getUnsignedInt(*program)->withConst(isConst);
                     } else {
-                        if (isShort) return Type::getShort(*program);
-                        if (isLong > 1) return Type::getLongLong(*program);
-                        if (isLong) return Type::getLong(*program);
-                        return Type::getInt(*program);
+                        if (isShort) return Type::getShort(*program)->withConst(isConst);
+                        if (isLong > 1) return Type::getLongLong(*program)->withConst(isConst);
+                        if (isLong) return Type::getLong(*program)->withConst(isConst);
+                        return Type::getInt(*program)->withConst(isConst);
                     }
                 }
             }
@@ -1109,12 +1252,12 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
             return addError(declaration, "duplicate definition");
     } else {
         if (isFunction) {
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, move(name)));
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, move(name), scope.getCurrentNamespace()));
         } else {
             if (!details->getAnyOrNull(0)) return addError(declaration, "type required");
             auto type = analyzeTypeIdExpression(scope, details->getAnyOrNull(0));
             if (!type) return false;
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name), type));
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name), scope.getCurrentNamespace(), type));
         }
     }
 
@@ -1241,7 +1384,7 @@ bool SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, b
     }
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
-        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<TypedefDeclaration>(mapping.getBegin(ast->getRange()), name, type));
+        decl = scope.getCurrentNamespace()->addDeclaration(make_unique<TypedefDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace(), type));
     } else {
         return addError(ast, "duplicate definition");
     }

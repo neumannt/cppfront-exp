@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
         {
             ofstream f(outname);
             cpp2exp::CppOut out(f, !clean);
-            out.generate(semana.getProgram());
+            out.generate(semana.getProgram(), semana.getTarget());
         }
 
         if (testMode) {

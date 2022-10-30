@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //---------------------------------------------------------------------------
 // Simulate import std;
+#include <iostream>
 #include <vector>
 //---------------------------------------------------------------------------
 namespace cpp2 {

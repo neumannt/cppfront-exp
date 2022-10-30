@@ -37,7 +37,7 @@ class ostream {
    operator <<: (this, v:long long) -> ostream;
    operator <<: (this, v:unsigned long long) -> ostream;
    operator <<: (this, v:double) -> ostream;
-   operator <<: (this, v:*char) -> ostream;
+   operator <<: (this, v:*const char) -> ostream;
    operator <<: (this, v:endl_type) -> ostream;
 }
 

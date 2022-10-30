@@ -92,10 +92,12 @@ class Declaration {
     SourceLocation loc;
     /// The name
     DeclarationId name;
+    /// The containing namespace (if any)
+    Namespace* containingNamespace;
 
     public:
     /// Constructor
-    Declaration(SourceLocation loc, DeclarationId name);
+    Declaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace);
     /// Destructor
     virtual ~Declaration();
 
@@ -103,6 +105,8 @@ class Declaration {
     auto& getLocation() const { return loc; }
     /// Get the name
     auto& getName() const { return name; }
+    /// Get the containing namespace
+    auto getContainingNamespace() const { return containingNamespace; }
 
     /// Get the declaration category
     virtual Category getCategory() const = 0;
@@ -121,7 +125,7 @@ class VariableDeclaration : public Declaration {
 
     public:
     /// Constructor
-    VariableDeclaration(SourceLocation loc, DeclarationId name, const Type* type);
+    VariableDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace, const Type* type);
     /// Destructor
     ~VariableDeclaration();
 
@@ -154,7 +158,7 @@ class FunctionDeclaration : public Declaration {
 
     public:
     /// Constructor
-    FunctionDeclaration(SourceLocation loc, DeclarationId name);
+    FunctionDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace);
     /// Destructor
     ~FunctionDeclaration();
 
@@ -188,7 +192,7 @@ class NamespaceDeclaration : public Declaration {
     Category getCategory() const override { return Category::Namespace; };
 
     /// Get the contained namespace
-    Namespace* getNamespace() { return ns.get(); }
+    Namespace* getNamespace() const { return ns.get(); }
 };
 //---------------------------------------------------------------------------
 /// A class declaration
@@ -208,7 +212,7 @@ class ClassDeclaration : public Declaration {
     const Type* getCorrespondingType() const override;
 
     /// Get the contained class
-    Class* getClass() { return cl.get(); }
+    Class* getClass() const { return cl.get(); }
 };
 //---------------------------------------------------------------------------
 /// A typedef declaration declaration
@@ -218,7 +222,7 @@ class TypedefDeclaration : public Declaration {
 
     public:
     /// Constructor
-    TypedefDeclaration(SourceLocation loc, DeclarationId name, const Type* originalType);
+    TypedefDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace, const Type* originalType);
     /// Destructor
     ~TypedefDeclaration();
 

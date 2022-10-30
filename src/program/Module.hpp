@@ -24,7 +24,7 @@ class Module {
     ~Module();
 
     /// Access the global namespace
-    Namespace* getGlobalNamespace() { return globalNamespace.get(); }
+    Namespace* getGlobalNamespace() const { return globalNamespace.get(); }
 };
 //---------------------------------------------------------------------------
 }

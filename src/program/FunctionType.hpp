@@ -55,6 +55,10 @@ class FunctionType : public Type {
 
     /// Get the type category
     Category getCategory() const override { return Category::Function; }
+    /// Access the parameters
+    auto& getParameters() const { return parameter; }
+    /// Get the return values
+    auto& getReturnValues() const { return returnValues; }
 
     /// Create or lookup a function type
     static const FunctionType* get(Program& prog, std::vector<Parameter>&& parameter, std::vector<std::pair<std::string, const Type*>>&& returnValues, bool canThrow);

@@ -22,6 +22,8 @@ class Namespace {
     Namespace* parent;
     /// All declarations within the namespace
     std::unordered_map<DeclarationId, std::unique_ptr<Declaration>> declarations;
+    /// The depth from the root
+    unsigned depth;
 
     public:
     /// Constructor
@@ -30,7 +32,7 @@ class Namespace {
     virtual ~Namespace();
 
     /// Find a declaration within the namespace
-    Declaration* findDeclaration(const DeclarationId& name);
+    Declaration* findDeclaration(const DeclarationId& name) const;
     /// Create a new declaration
     Declaration* addDeclaration(std::unique_ptr<Declaration> decl);
 
@@ -38,6 +40,13 @@ class Namespace {
     auto& getName() const { return name; }
     /// Get the parent namespace
     Namespace* getParent() const { return parent; }
+
+    /// Get the depth from the root
+    unsigned getDepth() const { return depth; }
+    /// Get the path step at a certain depth
+    std::string_view getPathStep(unsigned depth) const;
+    /// Find the lowest common ancestor of two namespace
+    unsigned findLCA(const Namespace* other) const;
 };
 //---------------------------------------------------------------------------
 /// A class is a special type of namespace
@@ -50,6 +59,9 @@ class Class : public Namespace {
     Class(std::string name, Namespace* parent, Program* program);
     /// Destructor
     ~Class();
+
+    /// Find a function declaration within the class or a base class
+    FunctionDeclaration* findWithInheritance(const DeclarationId& name) const;
 
     /// Get the class type
     const Type* getType() const { return type.get(); }

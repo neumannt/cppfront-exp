@@ -2,6 +2,7 @@
 #include "program/Declaration.hpp"
 #include "program/Expression.hpp"
 #include "program/FunctionType.hpp"
+#include "program/Module.hpp"
 #include "program/Namespace.hpp"
 #include "program/Program.hpp"
 #include "program/Statement.hpp"
@@ -60,6 +61,10 @@ void CppOut::write(std::string_view a, std::string_view b, std::string_view c)
 void CppOut::writeType(const Type* type)
 // Write a type
 {
+    if (type->isConst()) {
+        write("const ");
+        type = type->getAsNonConst();
+    }
     switch (type->getCategory()) {
         case Type::Category::Fundamental:
             using FundamentalTypeId = FundamentalType::FundamentalTypeId;
@@ -93,10 +98,26 @@ void CppOut::writeType(const Type* type)
             break;
         case Type::Category::Class: {
             const Class* cl = type->as<ClassType>()->getClass();
-            write(cl->getName()); // TODO handled namespaces
+            writeScopedName(cl->getParent(), cl->getName());
             break;
         }
     }
+}
+//---------------------------------------------------------------------------
+void CppOut::writeScopedName(Namespace* targetNamespace, string_view name)
+// Write a scoped name
+{
+    // TODO: we have to check for aliasing here, using global paths if needed
+
+    if (targetNamespace != currentNamespace) {
+        // Write a namespace prefix as needed
+        unsigned lca = currentNamespace->findLCA(targetNamespace);
+        for (unsigned index = lca + 1, limit = targetNamespace->getDepth() + 1; index < limit; ++index) {
+            write(targetNamespace->getPathStep(index));
+            write("::");
+        }
+    }
+    write(name);
 }
 //---------------------------------------------------------------------------
 std::string CppOut::returnTypeName(const FunctionDeclaration& decl, unsigned slot)
@@ -117,7 +138,7 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
             advance(o.loc);
             auto type = o.type;
             if (type->returnValues.empty()) {
-                write("[[nodiscard]] void");
+                write("void");
             } else if ((type->returnValues.size() == 1) && (type->returnValues[0].first.empty())) {
                 writeType(type->returnValues[0].second);
             } else {
@@ -239,8 +260,10 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
             if (slot == 0) {
                 advance(gdecl.getLocation());
                 write("namespace ", gdecl.getName().name, " {");
+                currentNamespace = static_cast<const NamespaceDeclaration&>(gdecl).getNamespace();
             } else if (slot == 1) {
                 write("}");
+                currentNamespace = currentNamespace->getParent();
             }
             break;
         }
@@ -248,8 +271,10 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
             if (slot == 0) {
                 advance(gdecl.getLocation());
                 write("class ", gdecl.getName().name, " {");
+                currentNamespace = static_cast<const ClassDeclaration&>(gdecl).getClass();
             } else if (slot == 1) {
                 write("}");
+                currentNamespace = currentNamespace->getParent();
             }
             break;
         }
@@ -370,14 +395,19 @@ void CppOut::generateExpression(const Expression& e)
     switch (e.getCategory()) {
         case Category::Literal: write(static_cast<const Literal&>(e).getText()); break;
         case Category::Binary: generateBinaryExpression(static_cast<const BinaryExpression&>(e)); break;
-        case Category::Variable: write(static_cast<const VariableExpression&>(e).getVariable()->getName().name); break;
+        case Category::Variable: {
+            auto d = static_cast<const VariableExpression&>(e).getVariable();
+            writeScopedName(d->getContainingNamespace(), d->getName().name);
+            break;
+        }
     }
 }
 //---------------------------------------------------------------------------
-void CppOut::generate(const Program& prog)
+void CppOut::generate(const Program& prog, const Module& module)
 // Generate the C++1 code
 {
     // Write the header first
+    currentNamespace = module.getGlobalNamespace();
     inBody = false;
     write("#include \"cpp2util.hpp\"\n");
     for (auto& d : prog.getSourceOrder()) {

@@ -7,6 +7,8 @@
 //---------------------------------------------------------------------------
 #include "parser/Range.hpp"
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
 #include <vector>
 //---------------------------------------------------------------------------
@@ -16,6 +18,7 @@ class AST;
 class Expression;
 class Declaration;
 class DeclarationId;
+class FunctionDeclaration;
 class FunctionType;
 class Parser;
 class Module;
@@ -24,6 +27,7 @@ class Program;
 class Statement;
 class Scope;
 class Type;
+enum class ValueCategory : unsigned;
 //---------------------------------------------------------------------------
 /// Semantic analysis logic
 class SemanticAnalysis {
@@ -55,11 +59,30 @@ class SemanticAnalysis {
     /// Make sure an expression is convertible into a certain type
     bool enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
     /// Try to resolve an operator
-    const Type* resolveOperator(Scope& scope, const DeclarationId& id, const Expression& left, const Expression& right);
+    const Type* resolveOperator(Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right);
     /// Resolve an unqualified id
     Declaration* resolveUnqualifiedId(Scope& scope, const AST* ast);
     /// Resolve a qualified id
     Declaration* resolveQualifiedId(Scope& scope, const AST* ast);
+
+    /// A call argument
+    struct CallArg {
+        /// The modifiers
+        enum Modifier {
+            Regular,
+            Out,
+            Move
+        };
+
+        /// The type
+        const Type* type;
+        /// The value category
+        ValueCategory category;
+        /// The modifier (if any)
+        Modifier modifier;
+    };
+    /// Resolve the function to call
+    std::optional<std::pair<FunctionDeclaration*, unsigned>> resolveCall(const AST* ast, std::span<FunctionDeclaration*> candidates, std::span<const CallArg> args, bool reportErrors = true);
 
     /// Analyze an expression
     std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);
@@ -118,6 +141,8 @@ class SemanticAnalysis {
     auto& getErrors() const { return errors; }
     /// Get the program
     auto& getProgram() const { return *program; }
+    /// Get the target
+    auto& getTarget() const { return *target; }
 };
 //---------------------------------------------------------------------------
 }

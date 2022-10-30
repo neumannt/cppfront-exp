@@ -17,8 +17,8 @@ std::size_t std::hash<cpp2exp::DeclarationId>::operator()(const cpp2exp::Declara
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-Declaration::Declaration(SourceLocation loc, DeclarationId name)
-    : loc(loc), name(move(name)) {
+Declaration::Declaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace)
+    : loc(loc), name(move(name)), containingNamespace(containingNamespace) {
 }
 //---------------------------------------------------------------------------
 Declaration::~Declaration() {
@@ -30,8 +30,8 @@ const Type* Declaration::getCorrespondingType() const
     return nullptr;
 }
 //---------------------------------------------------------------------------
-VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name, const Type* type)
-    : Declaration(loc, move(name)), type(type)
+VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace, const Type* type)
+    : Declaration(loc, move(name), containingNamespace), type(type)
 // Constructor
 {
 }
@@ -41,8 +41,8 @@ VariableDeclaration::~VariableDeclaration()
 {
 }
 //---------------------------------------------------------------------------
-FunctionDeclaration::FunctionDeclaration(SourceLocation loc, DeclarationId name)
-    : Declaration(loc, move(name))
+FunctionDeclaration::FunctionDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace)
+    : Declaration(loc, move(name), containingNamespace)
 // Constructor
 {
 }
@@ -77,7 +77,7 @@ unsigned FunctionDeclaration::addFunctionOverload(SourceLocation loc, const Func
 }
 //---------------------------------------------------------------------------
 NamespaceDeclaration::NamespaceDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent)
-    : Declaration(loc, name), ns(make_unique<Namespace>(name.name, parent))
+    : Declaration(loc, name, parent), ns(make_unique<Namespace>(name.name, parent))
 // Constructor
 {
 }
@@ -88,7 +88,7 @@ NamespaceDeclaration::~NamespaceDeclaration()
 }
 //---------------------------------------------------------------------------
 ClassDeclaration::ClassDeclaration(SourceLocation loc, DeclarationId name, Namespace* parent, Program* program)
-    : Declaration(loc, name), cl(make_unique<Class>(name.name, parent, program))
+    : Declaration(loc, name, parent), cl(make_unique<Class>(name.name, parent, program))
 // Constructor
 {
 }
@@ -104,8 +104,8 @@ const Type* ClassDeclaration::getCorrespondingType() const
     return cl->getType();
 }
 //---------------------------------------------------------------------------
-TypedefDeclaration::TypedefDeclaration(SourceLocation loc, DeclarationId name, const Type* originalType)
-    : Declaration(loc, move(name)), newType(make_unique<AliasType>(originalType->getProgram(), originalType))
+TypedefDeclaration::TypedefDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace, const Type* originalType)
+    : Declaration(loc, move(name), containingNamespace), newType(make_unique<AliasType>(originalType->getProgram(), originalType))
 // Constructor
 {
 }
