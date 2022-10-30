@@ -46,6 +46,8 @@ AST* Source::ast(AST::Type type, Range range, const AST* a1, const AST* a2, cons
 AST* Source::ast2(AST::Type type, unsigned subType, Range range, const AST* a1, const AST* a2, const AST* a3) { return astImpl(type, subType, range, {a1, a2, a3}); }
 AST* Source::ast(AST::Type type, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4) { return astImpl(type, 0, range, {a1, a2, a3, a4}); }
 AST* Source::ast2(AST::Type type, unsigned subType, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4) { return astImpl(type, subType, range, {a1, a2, a3, a4}); }
+AST* Source::ast(AST::Type type, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4, const AST* a5) { return astImpl(type, 0, range, {a1, a2, a3, a4, a5}); }
+AST* Source::ast2(AST::Type type, unsigned subType, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4, const AST* a5) { return astImpl(type, subType, range, {a1, a2, a3, a4, a5}); }
 //---------------------------------------------------------------------------
 AST* Source::buildList(AST::Type type, Range range, const AST* element)
 // Build a list with a single element

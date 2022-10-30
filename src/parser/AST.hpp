@@ -37,6 +37,8 @@ class AST {
         ExpressionListExpression,
         ExpressionStatement,
         ForStatement,
+        FunctionModifier,
+        FunctionModifierList,
         FunctionType,
         FundamentalType,
         FundamentalTypeModifier,
@@ -185,6 +187,20 @@ enum BinaryExpression {
 enum ContractKind { Pre,
                     Post,
                     Assert };
+enum class FunctionModifier {
+    In,
+    Out,
+    Inout,
+    Move,
+    Forward,
+    Static,
+    Virtual,
+    Abstract,
+    Override,
+    Final,
+    Defaulted,
+    Deleted
+};
 enum FundamentalType { Void,
                        Char,
                        Char8,

@@ -43,8 +43,6 @@ parameter_declaration_seq
 
 parameter_declaration
 <- d:parameter_direction? p:declaration_param { $$ = auxil->ast(AST::ParameterDeclaration, {$0s, $0e}, d, p); }
- ## extensions to mock existing C++1 code
- / d:parameter_direction? kw_this { $$ = auxil->ast(AST::ParameterDeclaration, {$0s, $0e}, d, nullptr); }
 
 parameter_direction
 <- skw_in _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::In, {$0s, $0e}); }
@@ -55,7 +53,7 @@ parameter_direction
  / skw_forward _ { $$ = auxil->ast2(AST::ParameterDirection, ast::ParameterDirection::Forward, {$0s, $0e}); }
 
 function_type
-<- p:parameter_declaration_list (_ t:throws_specifier)? (_ r:return_list)? (_ c:contract_seq)? { $$ = auxil->ast(AST::FunctionType, {$0s, $0e}, p, t, r, c); }
+<- p:parameter_declaration_list (_ t:throws_specifier)? (_ r:return_list)? (_ m:function_modifier_list)? (_ c:contract_seq)? { $$ = auxil->ast(AST::FunctionType, {$0s, $0e}, p, t, r, m, c); }
 
 throws_specifier
 <- kw_throws { $$ = auxil->ast(AST::Token, {$0s, $0e}); }
@@ -66,6 +64,23 @@ return_list
 
 contract
 <- '[[' _ k:contract_kind (_ e:id_expression)? _ ':' !':' _ c:logical_or_expression (_ ',' t:string_literal)? _ ']]' { $$ = auxil->ast(AST::Contract, {$0s, $0e}, k, e, c, t); }
+
+function_modifier
+<- skw_in _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::In, {$0s, $0e}); }
+ / skw_inout _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Inout, {$0s, $0e}); }
+ / skw_out _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Out, {$0s, $0e}); }
+ / skw_move _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Move, {$0s, $0e}); }
+ / skw_forward _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Forward, {$0s, $0e}); }
+ / kw_static _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Static, {$0s, $0e}); }
+ / kw_virtual _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Virtual, {$0s, $0e}); }
+ / 'override' _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Override, {$0s, $0e}); }
+ / '=' _ '0' _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Abstract, {$0s, $0e}); }
+ / '=' _ kw_default _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Defaulted, {$0s, $0e}); }
+ / '=' _ kw_delete _ { $$ = auxil->ast2(AST::FunctionModifier, ast::FunctionModifier::Deleted, {$0s, $0e}); }
+
+function_modifier_list
+<- l:function_modifier_list m:function_modifier { $$ = auxil->appendList(AST::FunctionModifierList, {$0s, $0e}, l, m); }
+ / m:function_modifier { $$ = auxil->buildList(AST::FunctionModifierList, {$0s, $0e}, m); }
 
 contract_kind
 <- skw_pre { $$ = auxil->ast2(AST::ContractKind, ast::ContractKind::Pre, {$0s, $0e}); }

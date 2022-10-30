@@ -368,9 +368,16 @@ optional<pair<FunctionDeclaration*, unsigned>> SemanticAnalysis::resolveCall(con
                 bool match = true, dominate = false;
                 for (unsigned argSlot = 0; argSlot < p.size(); ++argSlot) {
                     Matching matching;
-                    if ((p[argSlot].direction == FunctionType::ParameterDirection::Out) || (p[argSlot].direction == FunctionType::ParameterDirection::Inout)) {
-                        // For out and inout the type must match precisely and we need an lvalue
+                    if (p[argSlot].direction == FunctionType::ParameterDirection::Out) {
+                        // For out the type must match precisely and we need an lvalue
                         if ((!p[argSlot].type->isEquivalentTo(args[argSlot].type)) || (args[argSlot].category != ValueCategory::Lvalue)) {
+                            match = false;
+                            break;
+                        }
+                        matching = Matching::Exact;
+                    } else if (p[argSlot].direction == FunctionType::ParameterDirection::Inout) {
+                        // For inout it most be a non-const identical or derived type and we need an lvalue except for this. TODO handle derived types
+                        if ((!p[argSlot].type->isEquivalentTo(args[argSlot].type)) || ((args[argSlot].category != ValueCategory::Lvalue) && (!((argSlot == 0) && (p[argSlot].name == "this"sv))))) {
                             match = false;
                             break;
                         }
@@ -1146,15 +1153,82 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
     auto parameterList = ast->get(0, AST::ParameterDeclarationList);
     bool throwsSpecifier = ast->getAnyOrNull(1);
     auto returnList = ast->getOrNull(2, AST::ReturnList);
-    auto contractList = ast->getOrNull(3, AST::ContractSeq);
+    auto modifierList = ast->getOrNull(3, AST::FunctionModifierList);
+    auto contractList = ast->getOrNull(4, AST::ContractSeq);
+
+    // Inspect the function modifiers
+    unsigned slot = 0;
+    auto classScope = dynamic_cast<Class*>(scope.getCurrentNamespace());
+    FunctionType::ParameterDirection implicitDirection = FunctionType::ParameterDirection::Copy;
+    unsigned flags = 0;
+    enum FlagValues { Static,
+                      Virtual,
+                      Abstract,
+                      Override,
+                      Final,
+                      Defaulted,
+                      Deleted };
+    auto bitMask = [](FlagValues v) { return 1u << v; };
+    auto hasMultipleBits = [](unsigned v) { return !!(v & (v - 1)); };
+    for (auto m : List<AST::FunctionModifier>(modifierList)) {
+        if ((!classScope) && (m->getSubType<ast::FunctionModifier>() != ast::FunctionModifier::Static)) {
+            addError(m, "modifier is allowed for class methods");
+            return nullptr;
+        }
+        FunctionType::ParameterDirection newDirection = FunctionType::ParameterDirection::Copy;
+        unsigned newFlags = ~0u;
+        switch (m->getSubType<ast::FunctionModifier>()) {
+            case ast::FunctionModifier::In: newDirection = FunctionType::ParameterDirection::In; break;
+            case ast::FunctionModifier::Out: newDirection = FunctionType::ParameterDirection::Out; break;
+            case ast::FunctionModifier::Inout: newDirection = FunctionType::ParameterDirection::Inout; break;
+            case ast::FunctionModifier::Move: newDirection = FunctionType::ParameterDirection::Move; break;
+            case ast::FunctionModifier::Forward: newDirection = FunctionType::ParameterDirection::Forward; break;
+            case ast::FunctionModifier::Static: newFlags = Static; break;
+            case ast::FunctionModifier::Virtual: newFlags = Virtual; break;
+            case ast::FunctionModifier::Abstract: newFlags = Abstract; break;
+            case ast::FunctionModifier::Override: newFlags = Override; break;
+            case ast::FunctionModifier::Final: newFlags = Final; break;
+            case ast::FunctionModifier::Defaulted: newFlags = Defaulted; break;
+            case ast::FunctionModifier::Deleted: newFlags = Deleted; break;
+        }
+        if (newDirection != FunctionType::ParameterDirection::Copy) {
+            if (implicitDirection != FunctionType::ParameterDirection::Copy) {
+                addError(m, "conflicting modifier");
+                return nullptr;
+            }
+            implicitDirection = newDirection;
+        }
+        if (~newFlags) {
+            newFlags = 1 << newFlags;
+            if (flags & newFlags) {
+                addError(m, "conflicting modifier");
+                return nullptr;
+            }
+            flags |= newFlags;
+        }
+        if (((flags & bitMask(Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) | (hasMultipleBits(flags & (bitMask(Virtual) | bitMask(Abstract) | bitMask(Override) | bitMask(Final))))) {
+            addError(m, "conflicting modifier");
+            return nullptr;
+        }
+    }
+    if (implicitDirection == FunctionType::ParameterDirection::Copy) implicitDirection = FunctionType::ParameterDirection::In;
+
+    // Add implicit this parameter
+    vector<FunctionType::Parameter> parameter;
+    if (classScope && (!(flags & bitMask(Static)))) {
+        FunctionType::Parameter pa;
+        pa.name = "this";
+        pa.type = classScope->getType();
+        pa.direction = implicitDirection;
+        parameter.push_back(move(pa));
+        ++slot;
+    }
 
     // Inspect all parameters
-    vector<FunctionType::Parameter> parameter;
     if (defaultArguments) {
         defaultArguments->clear();
         *defaultArgumentsOffset = 0;
     }
-    unsigned slot = 0;
     for (auto p : List<AST::ParameterDeclaration>(parameterList->getOrNull(0, AST::ParameterDeclarationSeq))) {
         FunctionType::Parameter pa;
         if (auto d = p->getOrNull(0, AST::ParameterDirection)) {
@@ -1167,24 +1241,10 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
                 case ast::ParameterDirection::Forward: pa.direction = FunctionType::ParameterDirection::Forward; break;
             }
         }
-        auto d = p->getOrNull(1, AST::Declaration);
+        auto d = p->get(1, AST::Declaration);
         unique_ptr<Expression> defaultArgument;
-        if (d) {
-            pa.name = extractIdentifier(d->getAny(0));
-            if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
-        } else {
-            if (slot) {
-                addError(p, "this must be the first argument");
-                return nullptr;
-            }
-            auto cl = dynamic_cast<Class*>(scope.getCurrentNamespace());
-            if (!cl) {
-                addError(p, "member functions can only be declared inside classes");
-                return nullptr;
-            }
-            pa.name = "this";
-            pa.type = cl->getType();
-        }
+        pa.name = extractIdentifier(d->getAny(0));
+        if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
         if (defaultArguments) {
             if (defaultArgument) {
                 if (defaultArguments->empty()) *defaultArgumentsOffset = slot;

@@ -62,6 +62,10 @@ class Source {
     AST* ast(AST::Type type, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4);
     /// Create an AST node
     AST* ast2(AST::Type type, unsigned subType, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4);
+    /// Create an AST node
+    AST* ast(AST::Type type, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4, const AST* a5);
+    /// Create an AST node
+    AST* ast2(AST::Type type, unsigned subType, Range range, const AST* a1, const AST* a2, const AST* a3, const AST* a4, const AST* a5);
 
     /// Build a list with a single element
     AST* buildList(AST::Type type, Range range, const AST* element);
