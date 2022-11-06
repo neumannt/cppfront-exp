@@ -10,8 +10,8 @@
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
+class Namespace;
 class Type;
-class VariableDeclaration;
 //---------------------------------------------------------------------------
 /// The value category
 enum class ValueCategory : unsigned {
@@ -27,10 +27,12 @@ class Expression {
     enum class Category {
         Literal,
         Binary,
+        Assignment,
         Variable
     };
     /// Precedence levels
     enum class Precedence {
+        Assignment,
         LogicalOrExpression,
         LogicalAndExpression,
         BitOr,
@@ -149,22 +151,67 @@ class BinaryExpression : public Expression {
     Precedence getPrecedence() const override;
 };
 //---------------------------------------------------------------------------
-/// A variable reference
-class VariableExpression : public Expression {
-    protected:
-    /// The variable
-    VariableDeclaration* decl;
+/// An assignment expression
+class AssignmentExpression : public Expression {
+    public:
+    /// The operation
+    enum Op {
+        Assignment,
+        BitOrEq,
+        BitAndEq,
+        BitXorEq,
+        MulEq,
+        DivEq,
+        ModuloEq,
+        PlusEq,
+        MinusEq,
+        LeftShiftEq,
+        RightShiftEq
+    };
+
+    private:
+    /// The operation
+    Op op;
+    /// The input
+    std::unique_ptr<Expression> left, right;
 
     public:
     /// Constructor
-    VariableExpression(SourceLocation loc, const Type* type, VariableDeclaration* decl) : Expression(loc, type, ValueCategory::Lvalue), decl(decl) {}
+    AssignmentExpression(SourceLocation loc, const Type* type, ValueCategory valueCategory, Op op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right) : Expression(loc, type, valueCategory), op(op), left(std::move(left)), right(std::move(right)) {}
+
+    /// Get the operation
+    Op getOp() const { return op; }
+    /// Get the left input
+    const Expression& getLeft() const { return *left; }
+    /// Get the right input
+    const Expression& getRight() const { return *right; }
+
+    /// Get the expression category
+    Category getCategory() const override { return Category::Assignment; }
+    /// Get the expression precedence (for printing)
+    Precedence getPrecedence() const override;
+};
+//---------------------------------------------------------------------------
+/// A variable reference
+class VariableExpression : public Expression {
+    protected:
+    /// The name
+    std::string_view name;
+    /// The containing namespace (nullptr for local variables)
+    Namespace* containingNamespace;
+
+    public:
+    /// Constructor
+    VariableExpression(SourceLocation loc, const Type* type, std::string_view name, Namespace* containingNamespace) : Expression(loc, type, ValueCategory::Lvalue), name(name), containingNamespace(containingNamespace) {}
 
     /// Get the expression category
     Category getCategory() const override { return Category::Variable; }
     /// Get the expression precedence (for printing)
     Precedence getPrecedence() const override { return Precedence::Primary; }
-    /// Get the variable
-    auto getVariable() const { return decl; }
+    /// Get the name
+    auto getName() const { return name; }
+    /// Get the containing namespace
+    auto getContainingNamespace() const { return containingNamespace; }
 };
 //---------------------------------------------------------------------------
 }

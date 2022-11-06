@@ -164,6 +164,7 @@ DeclarationId SemanticAnalysis::extractDeclarationId(const AST* ast)
 {
     if (ast->getType() == AST::OperatorName) {
         switch (ast->getSubType<ast::OperatorName>()) {
+            case ast::OperatorName::Assignment: return DeclarationId(DeclarationId::Category::OperatorAssignment);
             case ast::OperatorName::BitAnd: return DeclarationId(DeclarationId::Category::OperatorBitAnd);
             case ast::OperatorName::BitAndEq: return DeclarationId(DeclarationId::Category::OperatorBitAndEq);
             case ast::OperatorName::BitOr: return DeclarationId(DeclarationId::Category::OperatorBitOr);
@@ -476,7 +477,7 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, co
 {
     switch (ast->getType()) {
         case AST::ExpressionListExpression: return analyzeExpressionListExpression(scope, ast, typeHint);
-        case AST::AssignmentExpression: addError(ast, "assignment_expression not implemented yet"); return {}; // TODO
+        case AST::AssignmentExpression: return analyzeAssignmentExpression(scope, ast);
         case AST::BinaryExpression: return analyzeBinaryExpression(scope, ast);
         case AST::PrefixExpression: addError(ast, "prefix_expression not implemented yet"); return {}; // TODO
         case AST::PostfixExpression: addError(ast, "postfix_expression not implemented yet"); return {}; // TODO
@@ -632,6 +633,136 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
             if ((text.back() == 'f') || (text.back() == 'F')) return make_unique<Literal>(loc, Type::getFloat(*program), text);
             return make_unique<Literal>(loc, Type::getDouble(*program), text);
     }
+    return {};
+}
+//---------------------------------------------------------------------------
+static bool canConvertImplicit(const Type* targetType, const Type* sourceType)
+// Check for implicit conversions
+{
+    if (targetType == sourceType) return true;
+    using FundamentalTypeId = Type::FundamentalTypeId;
+    if (targetType->isFundamentalType() && sourceType->isFundamentalType()) {
+        auto targetId = targetType->as<FundamentalType>()->getId();
+        auto sourceId = sourceType->as<FundamentalType>()->getId();
+
+        if (Type::isNumerical(targetId) && Type::isNumerical(sourceId)) {
+            // We can always convert numbers to the target type
+            return true;
+        }
+    } else if (targetType->isPointerType()) {
+        if (sourceType->isFundamentalType() && sourceType->as<FundamentalType>()->getId() == FundamentalTypeId::NullptrType) {
+            // Nullptr can be converted into anything
+        } else if (sourceType->isPointerType()) {
+            auto te = targetType->as<PointerType>()->getElementType();
+            auto se = sourceType->as<PointerType>()->getElementType();
+            if (se->isConst() && !te->isConst()) return false;
+            te = te->getAsNonConst();
+            se = se->getAsNonConst();
+            return se == te;
+        }
+    }
+    return false;
+}
+//---------------------------------------------------------------------------
+unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scope, const AST* ast)
+// Analyze a binary expression
+{
+    // Interpret the AST node type
+    auto loc = mapping.getBegin(ast->getRange());
+    auto subType = ast->get(1, AST::AssignmentOperator)->getSubType<ast::AssignmentOperator>();
+    AssignmentExpression::Op op;
+    DeclarationId::Category id;
+    switch (subType) {
+        case ast::AssignmentOperator::Assignment:
+            op = AssignmentExpression::Assignment;
+            id = DeclarationId::OperatorAssignment;
+            break;
+        case ast::AssignmentOperator::MultiplyEq:
+            op = AssignmentExpression::MulEq;
+            id = DeclarationId::OperatorMulEq;
+            break;
+        case ast::AssignmentOperator::SlashEq:
+            op = AssignmentExpression::DivEq;
+            id = DeclarationId::OperatorDivEq;
+            break;
+        case ast::AssignmentOperator::ModuloEq:
+            op = AssignmentExpression::ModuloEq;
+            id = DeclarationId::OperatorModuloEq;
+            break;
+        case ast::AssignmentOperator::PlusEq:
+            op = AssignmentExpression::PlusEq;
+            id = DeclarationId::OperatorPlusEq;
+            break;
+        case ast::AssignmentOperator::MinusEq:
+            op = AssignmentExpression::MinusEq;
+            id = DeclarationId::OperatorPlusEq;
+            break;
+        case ast::AssignmentOperator::RightShiftEq:
+            op = AssignmentExpression::RightShiftEq;
+            id = DeclarationId::OperatorRightShiftEq;
+            break;
+        case ast::AssignmentOperator::LeftShiftEq:
+            op = AssignmentExpression::LeftShiftEq;
+            id = DeclarationId::OperatorLeftShiftEq;
+            break;
+        case ast::AssignmentOperator::AmpersandEq:
+            op = AssignmentExpression::BitAndEq;
+            id = DeclarationId::OperatorBitAndEq;
+            break;
+        case ast::AssignmentOperator::CaretEq:
+            op = AssignmentExpression::BitXorEq;
+            id = DeclarationId::OperatorBitXorEq;
+            break;
+        case ast::AssignmentOperator::PipeEq:
+            op = AssignmentExpression::BitOrEq;
+            id = DeclarationId::OperatorBitOrEq;
+            break;
+    }
+
+    // Assignment is special, as we allow for uninitializing objects here
+    unique_ptr<Expression> left;
+    Scope::Var* varToInitialize = nullptr;
+    if (op == AssignmentExpression::Assignment) {
+        auto checkForUnitializedLocalVar = [this](Scope& scope, const AST* ast) -> Scope::Var* {
+            if (ast->getType() != AST::UnqualifiedId) return nullptr;
+            if (ast->getSubType<ast::UnqualifiedId>() == ast::UnqualifiedId::Template) return nullptr;
+            string name(extractIdentifier(ast->get(0, AST::Identifier)));
+            auto var = scope.resolveVariable(name);
+            return (var && !var->initialized) ? var : nullptr;
+        };
+
+        if (auto arg = checkForUnitializedLocalVar(scope, ast->getAny(0))) {
+            varToInitialize = arg;
+            left = make_unique<VariableExpression>(mapping.getBegin(ast->getAny(0)->getRange()), arg->type, extractIdentifier(ast->getAny(0)), nullptr);
+        } else {
+            left = analyzeExpression(scope, ast->getAny(0));
+        }
+    } else {
+        left = analyzeExpression(scope, ast->getAny(0));
+    }
+    if (!left) return {};
+
+    // Check the input
+    auto right = analyzeExpression(scope, ast->getAny(1));
+    if (!right) return {};
+
+    // The variable is initialized afterwards
+    if (varToInitialize) {
+        varToInitialize->initialized = true;
+    }
+
+    // Check for overloaded operators
+    DeclarationId fid(id);
+    const Type* match = resolveOperator(scope, ast, fid, *left, *right);
+    if (match) return make_unique<AssignmentExpression>(loc, match, Expression::ValueCategory::Lvalue, op, move(left), move(right));
+
+    // Check for builtin assignment functionality
+    const Type* leftType = left->getType();
+    const Type* rightType = right->getType();
+    if ((!leftType->isConst()) && (!leftType->isClassType()) && canConvertImplicit(leftType, rightType) && ((op == AssignmentExpression::Assignment) || (leftType->isFundamentalType())))
+        return make_unique<AssignmentExpression>(loc, leftType, Expression::ValueCategory::Lvalue, op, move(left), move(right));
+
+    addError(ast, "assignment operator not supported for data types");
     return {};
 }
 //---------------------------------------------------------------------------
@@ -854,6 +985,15 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
             return {};
         }
         localId = DeclarationId(extractIdentifier(ast->get(0, AST::Identifier)));
+
+        // A local variable?
+        if (auto localVar = scope.resolveVariable(localId.name)) {
+            if (!localVar->initialized) {
+                addError(ast, string(localId.name) + " is used uninitialized here");
+                return {};
+            }
+            make_unique<VariableExpression>(loc, localVar->type, localId.name, nullptr);
+        }
     } else {
         if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested) {
             addError(ast, "type name expected");
@@ -917,7 +1057,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
         return {};
     }
     auto v = static_cast<VariableDeclaration*>(d);
-    return make_unique<VariableExpression>(loc, v->getType(), v);
+    return make_unique<VariableExpression>(loc, v->getType(), v->getName().name, v->getContainingNamespace());
 }
 //---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
@@ -961,7 +1101,7 @@ unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, con
     } else {
         // TODO check that return values have been assigned
         if (ast->getAny(0)) {
-            addError(ast, "return values are passed via named in this function");
+            addError(ast, "return values are passed via named arguments in this function");
             return {};
         }
     }
@@ -1360,8 +1500,23 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         FunctionScope fs(overload->type);
         Scope innerScope(scope);
         innerScope.setCurrentFunction(&fs);
+        for (auto& p : funcType->getParameters()) {
+            if (innerScope.definesVariable(p.name)) {
+                addError(declaration, "duplicate definition of " + p.name);
+                return false;
+            }
+            innerScope.defineVariable(p.name, p.type, p.direction == FunctionType::ParameterDirection::Out);
+        }
         overload->statement = analyzeStatement(innerScope, details->getAny(1));
-        return !!(overload->statement);
+        if (!overload->statement) return false;
+        for (auto& p : funcType->getParameters()) {
+            if (p.direction == FunctionType::ParameterDirection::Out)
+                if (innerScope.isVariableUninitialized(p.name)) {
+                    addError(declaration, "out parameter " + p.name + " must be initialized");
+                    return false;
+                }
+        }
+        return true;
     } else {
         // Declaration only?
         if (!details->getAnyOrNull(1)) {

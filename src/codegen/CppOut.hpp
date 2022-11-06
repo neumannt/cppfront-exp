@@ -10,6 +10,7 @@
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
+class AssignmentExpression;
 class BinaryExpression;
 class Declaration;
 class Expression;
@@ -55,6 +56,8 @@ class CppOut {
     void generateStatement(const Statement& s);
     /// Generate code for a binary expression
     void generateBinaryExpression(const BinaryExpression& e);
+    /// Generate code for an assignment expression
+    void generateAssignmentExpression(const AssignmentExpression& e);
     /// Generate code for an expression
     void generateExpression(const Expression& e);
 

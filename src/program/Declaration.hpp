@@ -26,6 +26,7 @@ struct DeclarationId {
     enum Category {
         Regular,
         OperatorAnd,
+        OperatorAssignment,
         OperatorBitAnd,
         OperatorBitAndEq,
         OperatorBitOr,

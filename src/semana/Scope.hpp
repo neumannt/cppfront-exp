@@ -8,12 +8,14 @@
 #include "parser/Range.hpp"
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 class FunctionType;
 class Namespace;
+class Type;
 //---------------------------------------------------------------------------
 /// Anchor for all scope information, holds information that is global to the analysis
 class ScopeRoot {
@@ -27,6 +29,15 @@ struct FunctionScope {
 //---------------------------------------------------------------------------
 /// A (potentially nested) scope
 class Scope {
+    public:
+    /// A variable
+    struct Var {
+        /// The type
+        const Type* type;
+        /// Initialized?
+        bool initialized;
+    };
+
     private:
     /// The root
     ScopeRoot& root;
@@ -36,6 +47,8 @@ class Scope {
     Namespace* currentNamespace;
     /// The current function (if any)
     FunctionScope* currentFunction;
+    /// All variable definitions
+    std::unordered_map<std::string, Var> variables;
 
     public:
     /// Constructor
@@ -51,6 +64,15 @@ class Scope {
     FunctionScope* getCurrentFunction() const { return currentFunction; }
     /// Switch the current function
     void setCurrentFunction(FunctionScope* f) { currentFunction = f; }
+
+    /// Is a variable defined in this scope here?
+    bool definesVariable(const std::string& name) const;
+    /// Define a variable
+    void defineVariable(const std::string& name, const Type* type, bool uninitialized);
+    /// Check if a variable that is defined in this scope is uninitialized
+    bool isVariableUninitialized(const std::string& name);
+    /// Resolve a variable in this or in parent scopes
+    Var* resolveVariable(const std::string& name);
 };
 //---------------------------------------------------------------------------
 }

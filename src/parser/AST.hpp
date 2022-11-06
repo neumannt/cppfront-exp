@@ -265,6 +265,7 @@ enum TypeModifier {
 enum QualifiedId { Nested,
                    Member };
 enum class OperatorName {
+    Assignment,
     BitAnd,
     BitAndEq,
     BitOr,

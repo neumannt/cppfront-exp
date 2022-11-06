@@ -109,7 +109,7 @@ void CppOut::writeScopedName(Namespace* targetNamespace, string_view name)
 {
     // TODO: we have to check for aliasing here, using global paths if needed
 
-    if (targetNamespace != currentNamespace) {
+    if (targetNamespace && targetNamespace != currentNamespace) {
         // Write a namespace prefix as needed
         unsigned lca = currentNamespace->findLCA(targetNamespace);
         for (unsigned index = lca + 1, limit = targetNamespace->getDepth() + 1; index < limit; ++index) {
@@ -162,6 +162,7 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
             switch (decl.getName().category) {
                 case DeclarationId::Category::Regular: write(decl.getName().name); break;
                 case DeclarationId::Category::OperatorAnd: write("operator &&"); break;
+                case DeclarationId::Category::OperatorAssignment: write("operator ="); break;
                 case DeclarationId::Category::OperatorBitAnd: write("operator &"); break;
                 case DeclarationId::Category::OperatorBitAndEq: write("operator &="); break;
                 case DeclarationId::Category::OperatorBitOr: write("operator |"); break;
@@ -388,6 +389,48 @@ void CppOut::generateBinaryExpression(const BinaryExpression& e)
     }
 }
 //---------------------------------------------------------------------------
+void CppOut::generateAssignmentExpression(const AssignmentExpression& e)
+// Generate code for an expression
+{
+    // Inspect precedence
+    auto pe = e.getPrecedence(), pl = e.getLeft().getPrecedence(), pr = e.getRight().getPrecedence();
+
+    // Generate left with parenthesis if needed
+    if (pl <= pe) {
+        write("(");
+        generateExpression(e.getLeft());
+        write(")");
+    } else {
+        generateExpression(e.getLeft());
+    }
+
+    // Generate the operator itself
+    advance(e.getLocation());
+    using Op = AssignmentExpression::Op;
+    switch (e.getOp()) {
+        case Op::Assignment: write(" = "); break;
+        case Op::BitOrEq: write(" |= "); break;
+        case Op::BitAndEq: write(" &= "); break;
+        case Op::BitXorEq: write(" ^= "); break;
+        case Op::MulEq: write(" *= "); break;
+        case Op::DivEq: write(" /= "); break;
+        case Op::ModuloEq: write(" %= "); break;
+        case Op::PlusEq: write(" += "); break;
+        case Op::MinusEq: write(" -= "); break;
+        case Op::LeftShiftEq: write(" <<= "); break;
+        case Op::RightShiftEq: write(" >>= "); break;
+    }
+
+    // Generate right with parenthesis if needed
+    if (pr < pe) {
+        write("(");
+        generateExpression(e.getRight());
+        write(")");
+    } else {
+        generateExpression(e.getRight());
+    }
+}
+//---------------------------------------------------------------------------
 void CppOut::generateExpression(const Expression& e)
 // Generate code for an expression
 {
@@ -395,9 +438,10 @@ void CppOut::generateExpression(const Expression& e)
     switch (e.getCategory()) {
         case Category::Literal: write(static_cast<const Literal&>(e).getText()); break;
         case Category::Binary: generateBinaryExpression(static_cast<const BinaryExpression&>(e)); break;
+        case Category::Assignment: generateAssignmentExpression(static_cast<const AssignmentExpression&>(e)); break;
         case Category::Variable: {
-            auto d = static_cast<const VariableExpression&>(e).getVariable();
-            writeScopedName(d->getContainingNamespace(), d->getName().name);
+            auto& v = static_cast<const VariableExpression&>(e);
+            writeScopedName(v.getContainingNamespace(), v.getName());
             break;
         }
     }

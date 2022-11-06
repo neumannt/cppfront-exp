@@ -40,5 +40,11 @@ Expression::Precedence BinaryExpression::getPrecedence() const
     return Precedence::Primary; // unreachable
 }
 //---------------------------------------------------------------------------
+Expression::Precedence AssignmentExpression::getPrecedence() const
+// Get the expression precedence (for printing)
+{
+    return Precedence::Assignment;
+}
+//---------------------------------------------------------------------------
 }
 //---------------------------------------------------------------------------

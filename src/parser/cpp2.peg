@@ -703,6 +703,7 @@ operator_name
  / '%' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Modulo, {$0s, $0e}); }
  / '<=>' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Spaceship, {$0s, $0e}); }
  / '==' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Equal, {$0s, $0e}); }
+ / '=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Assignment, {$0s, $0e}); }
  / '!=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::NotEqual, {$0s, $0e}); }
  / '<=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::LessEq, {$0s, $0e}); }
  / '<' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Less, {$0s, $0e}); }

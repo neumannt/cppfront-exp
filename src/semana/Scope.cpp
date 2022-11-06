@@ -8,6 +8,33 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 using namespace std;
 //---------------------------------------------------------------------------
+bool Scope::definesVariable(const std::string& name) const
+// Is a variable defined in this scope here?
+{
+    return variables.count(name);
+}
+//---------------------------------------------------------------------------
+void Scope::defineVariable(const std::string& name, const Type* type, bool uninitialized)
+// Define a variable
+{
+    variables[name] = {type, !uninitialized};
+}
+//---------------------------------------------------------------------------
+bool Scope::isVariableUninitialized(const std::string& name)
+// Check if a variable is uninitialized
+{
+    if (auto iter = variables.find(name); iter != variables.end()) return !iter->second.initialized;
+    return false;
+}
+//---------------------------------------------------------------------------
+Scope::Var* Scope::resolveVariable(const std::string& name)
+/// Resolve a variable in this or in parent scopes
+{
+    for (auto scope = this; scope; scope = scope->parent) {
+        if (auto iter = scope->variables.find(name); iter != scope->variables.end()) return &(iter->second);
+    }
+    return nullptr;
+}
 //---------------------------------------------------------------------------
 }
 //---------------------------------------------------------------------------
