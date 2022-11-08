@@ -1,0 +1,6 @@
+//test failure compiling
+//message out parameter x must be initialized
+
+foo: (out x : int) = {
+    // Error: out parameter is not written
+}

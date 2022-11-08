@@ -408,6 +408,11 @@ void CppOut::generateAssignmentExpression(const AssignmentExpression& e)
     advance(e.getLocation());
     using Op = AssignmentExpression::Op;
     switch (e.getOp()) {
+        case Op::Construct:
+            write(".construct");
+            pr = Expression::Precedence::Assignment;
+            pe = Expression::Precedence::Primary;
+            break;
         case Op::Assignment: write(" = "); break;
         case Op::BitOrEq: write(" |= "); break;
         case Op::BitAndEq: write(" &= "); break;

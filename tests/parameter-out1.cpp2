@@ -1,0 +1,5 @@
+//test ok
+
+foo: (out x : int) = {
+   x = 2;
+}

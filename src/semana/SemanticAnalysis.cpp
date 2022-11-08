@@ -733,7 +733,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
 
         if (auto arg = checkForUnitializedLocalVar(scope, ast->getAny(0))) {
             varToInitialize = arg;
-            left = make_unique<VariableExpression>(mapping.getBegin(ast->getAny(0)->getRange()), arg->type, extractIdentifier(ast->getAny(0)), nullptr);
+            op = AssignmentExpression::Construct;
+            left = make_unique<VariableExpression>(mapping.getBegin(ast->getAny(0)->getRange()), arg->type, extractIdentifier(ast->getAny(0)->get(0, AST::Identifier)), nullptr);
         } else {
             left = analyzeExpression(scope, ast->getAny(0));
         }
@@ -743,7 +744,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
     if (!left) return {};
 
     // Check the input
-    auto right = analyzeExpression(scope, ast->getAny(1));
+    auto right = analyzeExpression(scope, ast->getAny(2));
     if (!right) return {};
 
     // The variable is initialized afterwards

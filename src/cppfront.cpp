@@ -21,6 +21,17 @@ static void showHelp(const char* argv0) {
     cerr << "usage: " << argv0 << "[-o filename] <input.cpp2>" << endl;
 }
 //---------------------------------------------------------------------------
+static bool checkMessage(const vector<cpp2exp::Error>& errors, const string& message) {
+    if (message.empty()) return true;
+    for (auto& e : errors)
+        if (e.text.find(message) != string::npos)
+            return true;
+    cerr << "expected error message: " << message << endl
+         << "got:" << endl;
+    printErrors(errors);
+    return false;
+}
+//---------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
     string outfile;
     vector<string> files;
@@ -94,8 +105,10 @@ int main(int argc, char* argv[]) {
                           ParsingFails,
                           AnalysisFails };
         Mode mode = Mode::Success;
+        string expected;
         if (testMode) {
-            string statement(parser.getContent().substr(0, parser.getContent().find('\n')));
+            auto sep = parser.getContent().find('\n');
+            string statement(parser.getContent().substr(0, sep));
             if (statement == "//test ok") {
                 mode = Mode::Success;
             } else if (statement == "//test failure parsing") {
@@ -105,6 +118,9 @@ int main(int argc, char* argv[]) {
             } else {
                 cerr << "test annotation missing for " << fileName << endl;
                 return 1;
+            }
+            if (parser.getContent().substr(sep + 1, 10) == "//message ") {
+                expected = parser.getContent().substr(sep + 11, parser.getContent().find('\n', sep + 1) - (sep + 11));
             }
         }
 
@@ -121,6 +137,7 @@ int main(int argc, char* argv[]) {
                 cerr << "parsing " << fileName << " should fail, but doesn't" << endl;
                 return 1;
             }
+            if (!checkMessage(parser.getErrors(), expected)) return 1;
             continue;
         }
 
@@ -134,6 +151,7 @@ int main(int argc, char* argv[]) {
                 printErrors(semana.getErrors());
                 return 1;
             } else {
+                if (!checkMessage(semana.getErrors(), expected)) return 1;
                 continue;
             }
         } else {

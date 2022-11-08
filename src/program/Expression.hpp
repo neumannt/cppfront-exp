@@ -156,6 +156,7 @@ class AssignmentExpression : public Expression {
     public:
     /// The operation
     enum Op {
+        Construct,
         Assignment,
         BitOrEq,
         BitAndEq,
