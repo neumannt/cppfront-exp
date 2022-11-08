@@ -28,7 +28,8 @@ class Expression {
         Literal,
         Binary,
         Assignment,
-        Variable
+        Variable,
+        WrappedVariable
     };
     /// Precedence levels
     enum class Precedence {
@@ -197,22 +198,31 @@ class AssignmentExpression : public Expression {
 class VariableExpression : public Expression {
     protected:
     /// The name
-    std::string_view name;
+    std::string name;
     /// The containing namespace (nullptr for local variables)
     Namespace* containingNamespace;
 
     public:
     /// Constructor
-    VariableExpression(SourceLocation loc, const Type* type, std::string_view name, Namespace* containingNamespace) : Expression(loc, type, ValueCategory::Lvalue), name(name), containingNamespace(containingNamespace) {}
+    VariableExpression(SourceLocation loc, const Type* type, std::string name, Namespace* containingNamespace) : Expression(loc, type, ValueCategory::Lvalue), name(std::move(name)), containingNamespace(containingNamespace) {}
 
     /// Get the expression category
     Category getCategory() const override { return Category::Variable; }
     /// Get the expression precedence (for printing)
     Precedence getPrecedence() const override { return Precedence::Primary; }
     /// Get the name
-    auto getName() const { return name; }
+    auto& getName() const { return name; }
     /// Get the containing namespace
     auto getContainingNamespace() const { return containingNamespace; }
+};
+//---------------------------------------------------------------------------
+/// A wrapped variable reference
+class WrappedVariableExpression : public VariableExpression {
+    public:
+    using VariableExpression::VariableExpression;
+
+    /// Get the expression category
+    Category getCategory() const override { return Category::WrappedVariable; }
 };
 //---------------------------------------------------------------------------
 }

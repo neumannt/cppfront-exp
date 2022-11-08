@@ -311,7 +311,7 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
 
         auto d = ns->findDeclaration(name);
         if (!d) {
-            addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
+            addError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
             return nullptr;
         }
         Namespace* next;
@@ -338,7 +338,7 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
 
     auto d = ns->findDeclaration(name);
     if (!d) {
-        addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
+        addError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
         return nullptr;
     }
     return d;
@@ -734,7 +734,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
         if (auto arg = checkForUnitializedLocalVar(scope, ast->getAny(0))) {
             varToInitialize = arg;
             op = AssignmentExpression::Construct;
-            left = make_unique<VariableExpression>(mapping.getBegin(ast->getAny(0)->getRange()), arg->type, extractIdentifier(ast->getAny(0)->get(0, AST::Identifier)), nullptr);
+            left = make_unique<VariableExpression>(mapping.getBegin(ast->getAny(0)->getRange()), arg->type, string(extractIdentifier(ast->getAny(0)->get(0, AST::Identifier))), nullptr);
         } else {
             left = analyzeExpression(scope, ast->getAny(0));
         }
@@ -993,7 +993,9 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
                 addError(ast, string(localId.name) + " is used uninitialized here");
                 return {};
             }
-            make_unique<VariableExpression>(loc, localVar->type, localId.name, nullptr);
+            if (localVar->wrapped)
+                return make_unique<WrappedVariableExpression>(loc, localVar->type, localId.name, nullptr);
+            return make_unique<VariableExpression>(loc, localVar->type, localId.name, nullptr);
         }
     } else {
         if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested) {
@@ -1021,7 +1023,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
 
             auto d = ns->findDeclaration(name);
             if (!d) {
-                addError(e, "'" + name.name + "' not found in '" + ns->getName() + "'");
+                addError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
                 return nullptr;
             }
             Namespace* next;
@@ -1050,7 +1052,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
     // Lookup the element itself
     auto d = ns->findDeclaration(localId);
     if (!d) {
-        addError(ast, "'" + localId.name + "' not found in '" + ns->getName() + "'");
+        addError(ast, "'" + localId.name + "' not found in namespace '" + ns->getName() + "'");
         return {};
     }
     if (d->getCategory() != Declaration::Category::Variable) {
@@ -1506,7 +1508,7 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
                 addError(declaration, "duplicate definition of " + p.name);
                 return false;
             }
-            innerScope.defineVariable(p.name, p.type, p.direction == FunctionType::ParameterDirection::Out);
+            innerScope.defineVariable(p.name, p.type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
         }
         overload->statement = analyzeStatement(innerScope, details->getAny(1));
         if (!overload->statement) return false;

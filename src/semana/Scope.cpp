@@ -14,10 +14,10 @@ bool Scope::definesVariable(const std::string& name) const
     return variables.count(name);
 }
 //---------------------------------------------------------------------------
-void Scope::defineVariable(const std::string& name, const Type* type, bool uninitialized)
+void Scope::defineVariable(const std::string& name, const Type* type, bool uninitialized, bool wrapped)
 // Define a variable
 {
-    variables[name] = {type, !uninitialized};
+    variables[name] = {type, !uninitialized, wrapped};
 }
 //---------------------------------------------------------------------------
 bool Scope::isVariableUninitialized(const std::string& name)

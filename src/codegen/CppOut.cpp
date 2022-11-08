@@ -449,6 +449,12 @@ void CppOut::generateExpression(const Expression& e)
             writeScopedName(v.getContainingNamespace(), v.getName());
             break;
         }
+        case Category::WrappedVariable: {
+            auto& v = static_cast<const WrappedVariableExpression&>(e);
+            writeScopedName(v.getContainingNamespace(), v.getName());
+            write(".value()");
+            break;
+        }
     }
 }
 //---------------------------------------------------------------------------

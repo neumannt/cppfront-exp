@@ -36,6 +36,8 @@ class Scope {
         const Type* type;
         /// Initialized?
         bool initialized;
+        /// Wrapped type?
+        bool wrapped;
     };
 
     private:
@@ -68,7 +70,7 @@ class Scope {
     /// Is a variable defined in this scope here?
     bool definesVariable(const std::string& name) const;
     /// Define a variable
-    void defineVariable(const std::string& name, const Type* type, bool uninitialized);
+    void defineVariable(const std::string& name, const Type* type, bool uninitialized, bool wrapped);
     /// Check if a variable that is defined in this scope is uninitialized
     bool isVariableUninitialized(const std::string& name);
     /// Resolve a variable in this or in parent scopes
