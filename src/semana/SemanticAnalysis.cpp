@@ -763,7 +763,11 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
     if ((!leftType->isConst()) && (!leftType->isClassType()) && canConvertImplicit(leftType, rightType) && ((op == AssignmentExpression::Assignment) || (leftType->isFundamentalType())))
         return make_unique<AssignmentExpression>(loc, leftType, Expression::ValueCategory::Lvalue, op, move(left), move(right));
 
-    addError(ast, "assignment operator not supported for data types");
+    if (leftType->isConst()) {
+        addError(ast, "assignment of read-only variable");
+    } else {
+        addError(ast, "assignment operator not supported for data types");
+    }
     return {};
 }
 //---------------------------------------------------------------------------
@@ -1508,7 +1512,9 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
                 addError(declaration, "duplicate definition of " + p.name);
                 return false;
             }
-            innerScope.defineVariable(p.name, p.type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
+            auto type = p.type;
+            if (p.direction == FunctionType::ParameterDirection::In) type = type->getAsConst();
+            innerScope.defineVariable(p.name, type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
         }
         overload->statement = analyzeStatement(innerScope, details->getAny(1));
         if (!overload->statement) return false;
