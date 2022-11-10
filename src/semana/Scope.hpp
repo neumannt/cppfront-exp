@@ -21,11 +21,7 @@ class Type;
 class ScopeRoot {
 };
 //---------------------------------------------------------------------------
-/// Information about the current function (if any)
-struct FunctionScope {
-    /// The corresponding type
-    const FunctionType* functionType;
-};
+struct FunctionScope;
 //---------------------------------------------------------------------------
 /// A (potentially nested) scope
 class Scope {
@@ -70,11 +66,19 @@ class Scope {
     /// Is a variable defined in this scope here?
     bool definesVariable(const std::string& name) const;
     /// Define a variable
-    void defineVariable(const std::string& name, const Type* type, bool uninitialized, bool wrapped);
+    Var* defineVariable(const std::string& name, const Type* type, bool uninitialized, bool wrapped);
     /// Check if a variable that is defined in this scope is uninitialized
     bool isVariableUninitialized(const std::string& name);
     /// Resolve a variable in this or in parent scopes
     Var* resolveVariable(const std::string& name);
+};
+//---------------------------------------------------------------------------
+/// Information about the current function (if any)
+struct FunctionScope {
+    /// The corresponding type
+    const FunctionType* functionType;
+    /// The out parameter (if any)
+    std::vector<std::pair<std::string, Scope::Var*>> out;
 };
 //---------------------------------------------------------------------------
 }

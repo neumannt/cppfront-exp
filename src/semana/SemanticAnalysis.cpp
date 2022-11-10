@@ -1090,6 +1090,12 @@ unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, con
         addError(ast, "return statements are only allowed within functions");
         return {};
     }
+    for (auto& v : fs->out) {
+        if (!v.second->initialized) {
+            addError(ast, "out parameter " + v.first + " must be initialized");
+            return {};
+        }
+    }
     auto ft = fs->functionType;
     auto begin = mapping.getBegin(ast->getRange());
     unique_ptr<Expression> arg;
@@ -1504,7 +1510,7 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr);
         auto overload = fdecl->findFunctionOverload(funcType);
 
-        FunctionScope fs(overload->type);
+        FunctionScope fs(overload->type, {});
         Scope innerScope(scope);
         innerScope.setCurrentFunction(&fs);
         for (auto& p : funcType->getParameters()) {
@@ -1514,16 +1520,16 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
             }
             auto type = p.type;
             if (p.direction == FunctionType::ParameterDirection::In) type = type->getAsConst();
-            innerScope.defineVariable(p.name, type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
+            auto var = innerScope.defineVariable(p.name, type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
+            if (p.direction == FunctionType::ParameterDirection::Out) fs.out.push_back({p.name, var});
         }
         overload->statement = analyzeStatement(innerScope, details->getAny(1));
         if (!overload->statement) return false;
-        for (auto& p : funcType->getParameters()) {
-            if (p.direction == FunctionType::ParameterDirection::Out)
-                if (innerScope.isVariableUninitialized(p.name)) {
-                    addError(declaration, "out parameter " + p.name + " must be initialized");
-                    return false;
-                }
+        for (auto& v : fs.out) {
+            if (!v.second->initialized) {
+                addError(declaration, "out parameter " + v.first + " must be initialized");
+                return false;
+            }
         }
         return true;
     } else {
