@@ -203,30 +203,30 @@ DeclarationId SemanticAnalysis::extractDeclarationId(const AST* ast)
     return DeclarationId(string(extractIdentifier(ast)));
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, [[maybe_unused]] bool explicitScope)
+void SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, [[maybe_unused]] bool explicitScope)
 // Make sure an expression is convertible into a certain type
 {
     auto ta = exp->getType()->getEffectiveType();
     auto tb = target->getEffectiveType();
 
     // Trivial conversion?
-    if (ta == tb) return true;
+    if (ta == tb) return;
 
     // Standard conversions
     if (tb->isPointerType()) {
         if (ta->isFundamentalType() && (tb->as<FundamentalType>()->getId() == Type::FundamentalTypeId::NullptrType))
-            return true;
+            return;
         // TODO handle const
     } else if (tb->isFundamentalType()) {
         auto ib = tb->as<FundamentalType>()->getId();
         if (ib == Type::FundamentalTypeId::Bool) {
-            if (ta->isPointerType()) return true;
+            if (ta->isPointerType()) return;
         }
         if (ta->isFundamentalType()) {
             auto ia = ta->as<FundamentalType>()->getId();
             // So far all conversions are valid as long as both are not void
             if ((ia != Type::FundamentalTypeId::Void) && (ib != Type::FundamentalTypeId::Void) && (ia != Type::FundamentalTypeId::NullptrType) && (ib != Type::FundamentalTypeId::NullptrType))
-                return true;
+                return;
         }
     }
 
@@ -897,7 +897,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
     switch (op) {
         case BinaryExpression::LogicalAnd:
         case BinaryExpression::LogicalOr:
-            if ((!enforceConvertible(ast, left, Type::getBool(*program))) || (!enforceConvertible(ast, right, Type::getBool(*program)))) return {};
+            enforceConvertible(ast, left, Type::getBool(*program));
+            enforceConvertible(ast, right, Type::getBool(*program));
             return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
         case BinaryExpression::BitAnd:
         case BinaryExpression::BitOr:
@@ -1018,7 +1019,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
     return make_unique<VariableExpression>(loc, v->getType(), v->getName().name, v->getContainingNamespace());
 }
 //---------------------------------------------------------------------------
-unique_ptr<Statement> SemanticAnalysis::analyzeDeclarationStatement(Scope& scope, const AST* ast)
+SemanticAnalysis::StatementResult SemanticAnalysis::analyzeDeclarationStatement(Scope& scope, const AST* ast)
 // Analyze a declaration statement
 {
     auto begin = mapping.getBegin(ast->getRange());
@@ -1060,7 +1061,7 @@ unique_ptr<Statement> SemanticAnalysis::analyzeDeclarationStatement(Scope& scope
 
             // Create a new variable
             scope.defineVariable(name.name, type, !init, !init);
-            return make_unique<VariableStatement>(begin, name.name, type, move(init));
+            return {make_unique<VariableStatement>(begin, name.name, type, move(init)), StatementResult::Normal};
         }
         case AST::Namespace:
             throwError(begin, "namespace definition not allowed here");
@@ -1075,22 +1076,24 @@ unique_ptr<Statement> SemanticAnalysis::analyzeDeclarationStatement(Scope& scope
     }
 }
 //---------------------------------------------------------------------------
-unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
+SemanticAnalysis::StatementResult SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
 // Analyze a compound statement
 {
     auto begin = mapping.getBegin(ast->getRange());
     Scope innerScope(scope);
     vector<unique_ptr<Statement>> statements;
+    StatementResult::State state = StatementResult::Normal;
     for (auto s : ASTList(ast->getAnyOrNull(0))) {
-        statements.push_back(analyzeStatement(innerScope, s));
-        if (!statements.back()) return {};
+        auto res = analyzeStatement(innerScope, s);
+        if (state == StatementResult::Normal) state = res.state;
+        statements.push_back(move(res.statement));
     }
     auto end = mapping.getEnd(ast->getRange());
 
-    return make_unique<CompoundStatement>(begin, end, move(statements));
+    return {make_unique<CompoundStatement>(begin, end, move(statements)), state};
 }
 //---------------------------------------------------------------------------
-unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, const AST* ast)
+SemanticAnalysis::StatementResult SemanticAnalysis::analyzeReturnStatement(Scope& scope, const AST* ast)
 // Analyze a return statement
 {
     auto fs = scope.getCurrentFunction();
@@ -1104,33 +1107,33 @@ unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, con
     auto begin = mapping.getBegin(ast->getRange());
     unique_ptr<Expression> arg;
     if (ft->returnValues.empty()) {
-        if (ast->getAny(0))
+        if (ast->getAnyOrNull(0))
             throwError(ast, "cannot return a value in function returning void");
     } else if ((ft->returnValues.size() == 1) && (ft->returnValues[0].first.empty())) {
-        if (!ast->getAny(0))
+        if (!ast->getAnyOrNull(0))
             throwError(ast, "cannot return a value in function returning void");
         arg = analyzeExpression(scope, ast->getAny(0), ft->returnValues[0].second);
-        if ((!arg) || (!enforceConvertible(ast->getAny(0), arg, ft->returnValues[0].second))) return {};
+        enforceConvertible(ast->getAny(0), arg, ft->returnValues[0].second);
     } else {
         // TODO check that return values have been assigned
         if (ast->getAny(0))
             throwError(ast, "return values are passed via named arguments in this function");
     }
 
-    return make_unique<ReturnStatement>(begin, move(arg));
+    return {make_unique<ReturnStatement>(begin, move(arg)), StatementResult::Returns};
 }
 //---------------------------------------------------------------------------
-unique_ptr<Statement> SemanticAnalysis::analyzeExpressionStatement(Scope& scope, const AST* ast)
+SemanticAnalysis::StatementResult SemanticAnalysis::analyzeExpressionStatement(Scope& scope, const AST* ast)
 // Analyze an expression statement
 {
     auto begin = mapping.getBegin(ast->getRange());
     unique_ptr<Expression> arg = analyzeExpression(scope, ast->getAny(0));
     if (!arg) return {};
 
-    return make_unique<ExpressionStatement>(begin, move(arg));
+    return {make_unique<ExpressionStatement>(begin, move(arg)), StatementResult::Normal};
 }
 //---------------------------------------------------------------------------
-std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, const AST* ast)
+SemanticAnalysis::StatementResult SemanticAnalysis::analyzeStatement(Scope& scope, const AST* ast)
 // Analyze a statement
 {
     switch (ast->getType()) {
@@ -1485,7 +1488,10 @@ void SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
             auto var = innerScope.defineVariable(p.name, type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
             if (p.direction == FunctionType::ParameterDirection::Out) fs.out.push_back({p.name, var});
         }
-        overload->statement = analyzeStatement(innerScope, details->getAny(1));
+        auto res = analyzeStatement(innerScope, details->getAny(1));
+        overload->statement = move(res.statement);
+        if ((res.state == StatementResult::Normal) && (funcType->returnValues.size() == 1))
+            throwError(declaration, "function must return a value");
         for (auto& v : fs.out) {
             if (!v.second->initialized)
                 throwError(declaration, "out parameter " + v.first + " must be initialized");

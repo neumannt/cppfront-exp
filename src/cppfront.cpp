@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
 
         if (testMode) {
             // In test mode we make sure the result compiles with gcc
-            string cmd = "gcc -I" + includeDir + " -c -o/dev/null " + outname;
+            string cmd = "g++ --std=c++20 -I" + includeDir + " -c -o/dev/null " + outname;
             if (system(cmd.c_str()) != 0) {
                 cout << "compilation failed" << endl;
                 return 1;

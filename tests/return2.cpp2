@@ -1,0 +1,6 @@
+//test failure compiling
+//message cannot return a value in function returning void
+
+foo: () = {
+   return 1;
+}

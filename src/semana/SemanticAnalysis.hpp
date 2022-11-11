@@ -57,7 +57,7 @@ class SemanticAnalysis {
     /// Extract a function id
     DeclarationId extractDeclarationId(const AST* ast);
     /// Make sure an expression is convertible into a certain type
-    bool enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
+    void enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
     /// Try to resolve an operator
     const Type* resolveOperator(Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right);
     /// Resolve an unqualified id
@@ -84,6 +84,21 @@ class SemanticAnalysis {
     /// Resolve the function to call
     std::optional<std::pair<FunctionDeclaration*, unsigned>> resolveCall(const AST* ast, std::span<FunctionDeclaration*> candidates, std::span<const CallArg> args, bool reportErrors = true);
 
+    /// The result of a statement
+    struct StatementResult {
+        /// Possible control flow states
+        enum State {
+            Normal,
+            Returns,
+            Throws,
+            ReturnsOrThrows
+        };
+        /// The statement itself
+        std::unique_ptr<Statement> statement;
+        /// The control flow state
+        State state;
+    };
+
     /// Analyze an expression
     std::unique_ptr<Expression> analyzeExpression(Scope& scope, const AST* ast, const Type* typeHint = nullptr);
     /// Analyze a literal expression
@@ -97,15 +112,15 @@ class SemanticAnalysis {
     /// Analyze an id-expression that is part of an expression
     std::unique_ptr<Expression> analyzeIdExpressionExpression(Scope& scope, const AST* ast);
     /// Analyze a declaration statement
-    std::unique_ptr<Statement> analyzeDeclarationStatement(Scope& scope, const AST* ast);
+    StatementResult analyzeDeclarationStatement(Scope& scope, const AST* ast);
     /// Analyze a compound statement
-    std::unique_ptr<Statement> analyzeCompoundStatement(Scope& scope, const AST* ast);
+    StatementResult analyzeCompoundStatement(Scope& scope, const AST* ast);
     /// Analyze a return statement
-    std::unique_ptr<Statement> analyzeReturnStatement(Scope& scope, const AST* ast);
+    StatementResult analyzeReturnStatement(Scope& scope, const AST* ast);
     /// Analyze an expression statement
-    std::unique_ptr<Statement> analyzeExpressionStatement(Scope& scope, const AST* ast);
+    StatementResult analyzeExpressionStatement(Scope& scope, const AST* ast);
     /// Analyze a statement
-    std::unique_ptr<Statement> analyzeStatement(Scope& scope, const AST* ast);
+    StatementResult analyzeStatement(Scope& scope, const AST* ast);
     /// Analyze an id-expression with optional pointer markers
     const Type* analyzeIdExpression(Scope& scope, const AST* ast);
     /// Analyze an id-expression with optional pointer markers

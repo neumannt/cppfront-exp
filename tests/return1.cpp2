@@ -1,0 +1,15 @@
+//test ok
+
+// implicit return
+foo: () = {
+}
+
+// explicit return
+bar: () = {
+   return;
+}
+
+// explicit return with a value
+baz: () -> int = {
+   return 1;
+}

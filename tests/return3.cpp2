@@ -1,0 +1,5 @@
+//test failure compiling
+//message function must return a value
+
+foo: () -> int = {
+}
