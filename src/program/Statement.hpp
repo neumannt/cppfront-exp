@@ -23,6 +23,7 @@ class Statement {
         Compound,
         Variable,
         Return,
+        Selection,
         Expression
     };
 
@@ -127,6 +128,35 @@ class VariableStatement : public Statement {
     auto getDeclType() const { return type; }
     /// Access the init value (if any)
     auto& getInit() const { return init; }
+};
+//---------------------------------------------------------------------------
+/// A selection statement
+class SelectionStatement : public Statement {
+    /// The original source location (for pretty printing)
+    SourceLocation begin;
+    /// The condition
+    std::unique_ptr<Expression> cond;
+    /// The then branch
+    std::unique_ptr<Statement> thenBranch;
+    /// The else branch (if any)
+    std::unique_ptr<Statement> elseBranch;
+
+    public:
+    /// Constructor
+    SelectionStatement(SourceLocation begin, std::unique_ptr<Expression> cond, std::unique_ptr<Statement> thenBranch, std::unique_ptr<Statement> elseBranch) : begin(begin), cond(std::move(cond)), thenBranch(std::move(thenBranch)), elseBranch(std::move(elseBranch)) {}
+    /// Destructor
+    ~SelectionStatement();
+
+    /// Get the statement type
+    Type getType() const override { return Type::Selection; }
+    /// Get the begin location
+    auto getBegin() const { return begin; }
+    /// Get the condition
+    auto& getCondition() const { return cond; }
+    /// Get the then branch
+    auto& getThenBranch() const { return thenBranch; }
+    /// Get the else branch (if any)
+    auto& getElseBranch() const { return elseBranch; }
 };
 //---------------------------------------------------------------------------
 }

@@ -20,6 +20,7 @@ class Declaration;
 class DeclarationId;
 class FunctionDeclaration;
 class FunctionType;
+class Literal;
 class Parser;
 class Module;
 class Namespace;
@@ -28,6 +29,7 @@ class Statement;
 class Scope;
 class Type;
 enum class ValueCategory : unsigned;
+enum class ControlFlow : unsigned;
 //---------------------------------------------------------------------------
 /// Semantic analysis logic
 class SemanticAnalysis {
@@ -64,6 +66,8 @@ class SemanticAnalysis {
     Declaration* resolveUnqualifiedId(Scope& scope, const AST* ast);
     /// Resolve a qualified id
     Declaration* resolveQualifiedId(Scope& scope, const AST* ast);
+    /// Derive a constexpr value
+    std::unique_ptr<Literal> deriveConstexpr(const Expression& exp);
 
     /// A call argument
     struct CallArg {
@@ -86,17 +90,10 @@ class SemanticAnalysis {
 
     /// The result of a statement
     struct StatementResult {
-        /// Possible control flow states
-        enum State {
-            Normal,
-            Returns,
-            Throws,
-            ReturnsOrThrows
-        };
         /// The statement itself
         std::unique_ptr<Statement> statement;
         /// The control flow state
-        State state;
+        ControlFlow state;
     };
 
     /// Analyze an expression
@@ -117,6 +114,8 @@ class SemanticAnalysis {
     StatementResult analyzeCompoundStatement(Scope& scope, const AST* ast);
     /// Analyze a return statement
     StatementResult analyzeReturnStatement(Scope& scope, const AST* ast);
+    /// Analyze a selection statement
+    StatementResult analyzeSelectionStatement(Scope& scope, const AST* ast);
     /// Analyze an expression statement
     StatementResult analyzeExpressionStatement(Scope& scope, const AST* ast);
     /// Analyze a statement

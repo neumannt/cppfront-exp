@@ -13,6 +13,7 @@
 #include "stdlib/Stdlib.hpp"
 #include <cassert>
 #include <limits>
+#include <unordered_set>
 //---------------------------------------------------------------------------
 // cppfront-exp
 // (c) 2022 Thomas Neumann
@@ -325,6 +326,15 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
     if (!d)
         throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
     return d;
+}
+//---------------------------------------------------------------------------
+std::unique_ptr<Literal> SemanticAnalysis::deriveConstexpr(const Expression& exp)
+// Derive a constexpr value
+{
+    if (exp.getCategory() != Expression::Category::Literal)
+        throwError(exp.getLocation(), "constexpr not implemented yet");
+    auto& l = static_cast<const Literal&>(exp);
+    return make_unique<Literal>(l);
 }
 //---------------------------------------------------------------------------
 optional<pair<FunctionDeclaration*, unsigned>> SemanticAnalysis::resolveCall(const AST* ast, std::span<FunctionDeclaration*> candidates, std::span<const CallArg> args, bool reportErrors)
@@ -724,7 +734,13 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
 
     // The variable is initialized afterwards
     if (varToInitialize) {
-        varToInitialize->initialized = true;
+        if (!varToInitialize->initialized) {
+            scope.markInitialized(ast, varToInitialize);
+        } else {
+            // Our right side might contain another initialization...
+            op = AssignmentExpression::Assignment;
+            left = make_unique<WrappedVariableExpression>(mapping.getBegin(ast->getAny(0)->getRange()), left->getType(), string(extractIdentifier(ast->getAny(0)->get(0, AST::Identifier))), nullptr);
+        }
     }
 
     // Check for overloaded operators
@@ -1061,7 +1077,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeDeclarationStatement(
 
             // Create a new variable
             scope.defineVariable(name.name, type, !init, !init);
-            return {make_unique<VariableStatement>(begin, name.name, type, move(init)), StatementResult::Normal};
+            return {make_unique<VariableStatement>(begin, name.name, type, move(init)), ControlFlow::Normal};
         }
         case AST::Namespace:
             throwError(begin, "namespace definition not allowed here");
@@ -1082,13 +1098,15 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeCompoundStatement(Sco
     auto begin = mapping.getBegin(ast->getRange());
     Scope innerScope(scope);
     vector<unique_ptr<Statement>> statements;
-    StatementResult::State state = StatementResult::Normal;
+    ControlFlow state = ControlFlow::Normal;
     for (auto s : ASTList(ast->getAnyOrNull(0))) {
         auto res = analyzeStatement(innerScope, s);
-        if (state == StatementResult::Normal) state = res.state;
+        if (state == ControlFlow::Normal) state = res.state;
         statements.push_back(move(res.statement));
     }
     auto end = mapping.getEnd(ast->getRange());
+
+    innerScope.resolve(state);
 
     return {make_unique<CompoundStatement>(begin, end, move(statements)), state};
 }
@@ -1120,7 +1138,81 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeReturnStatement(Scope
             throwError(ast, "return values are passed via named arguments in this function");
     }
 
-    return {make_unique<ReturnStatement>(begin, move(arg)), StatementResult::Returns};
+    return {make_unique<ReturnStatement>(begin, move(arg)), ControlFlow::Returns};
+}
+//---------------------------------------------------------------------------
+SemanticAnalysis::StatementResult SemanticAnalysis::analyzeSelectionStatement(Scope& scope, const AST* ast)
+// Analyze a selection statement
+{
+    // Analyze the condition
+    auto begin = mapping.getBegin(ast->getRange());
+    auto cond = analyzeExpression(scope, ast->getAny(1));
+    enforceConvertible(ast->getAny(1), cond, Type::getBool(*program), true);
+
+    // A constexpr if?
+    if (ast->getAnyOrNull(0)) {
+        auto cv = deriveConstexpr(*cond);
+        if (cv->getText() == "true") {
+            return analyzeStatement(scope, ast->getAny(2));
+        } else if (cv->getText() == "false") {
+            if (ast->getAnyOrNull(3))
+                return analyzeStatement(scope, ast->getAny(3));
+            return {make_unique<CompoundStatement>(mapping.getBegin(ast->getRange()), mapping.getEnd(ast->getRange()), vector<unique_ptr<Statement>>()), ControlFlow::Normal};
+        }
+        throwError(ast, "constexpr not supported yet");
+    }
+
+    // A simple if?
+    if (!ast->getAnyOrNull(3)) {
+        Scope innerScope(scope);
+        auto thenBranch = analyzeStatement(innerScope, ast->getAny(2));
+        if ((thenBranch.state == ControlFlow::Normal) && !innerScope.getInitializedVars().empty())
+            throwError(innerScope.getInitializedVars().front().ast, "variable might be uninitialized after 'if'");
+        innerScope.resolve(thenBranch.state);
+        return {move(thenBranch.statement), ControlFlow::Normal};
+    }
+
+    // An if with two branches
+    Scope thenScope(scope);
+    auto thenBranch = analyzeStatement(thenScope, ast->getAny(2));
+    for (auto& i : thenScope.getInitializedVars()) i.var->initialized = false;
+    Scope elseScope(scope);
+    auto elseBranch = analyzeStatement(elseScope, ast->getAny(3));
+    ControlFlow state = ControlFlow::Normal;
+    if ((thenBranch.state == ControlFlow::Normal) && (elseBranch.state == ControlFlow::Normal)) {
+        for (auto& i : thenScope.getInitializedVars())
+            if (!i.var->initialized) throwError(i.ast, "variable is initialized in one branch but not the other");
+        if (elseScope.getInitializedVars().size() != thenScope.getInitializedVars().size()) {
+            // At least one variable is missing, find it for error reporting
+            unordered_set<Scope::Var*> init1;
+            for (auto& i : thenScope.getInitializedVars()) init1.insert(i.var);
+            for (auto& i : elseScope.getInitializedVars())
+                if (!init1.count(i.var))
+                    throwError(i.ast, "variable is initialized in one branch but not the other");
+        }
+        // Pretend that the then branch terminated to avoid double bookkeeping
+        thenScope.resolve(ControlFlow::Returns);
+        for (auto& i : elseScope.getInitializedVars()) i.var->initialized = true;
+        elseScope.resolve(ControlFlow::Normal);
+    } else if (thenBranch.state == ControlFlow::Normal) {
+        elseScope.resolve(elseBranch.state);
+        for (auto& i : thenScope.getInitializedVars()) i.var->initialized = true;
+        thenScope.resolve(thenBranch.state);
+    } else if (elseBranch.state == ControlFlow::Normal) {
+        thenScope.resolve(thenBranch.state);
+        for (auto& i : elseScope.getInitializedVars()) i.var->initialized = true;
+        elseScope.resolve(ControlFlow::Normal);
+    } else {
+        thenScope.resolve(thenBranch.state);
+        elseScope.resolve(elseBranch.state);
+        if (thenBranch.state == elseBranch.state) {
+            state = thenBranch.state;
+        } else {
+            state = ControlFlow::ReturnsOrThrows;
+        }
+    }
+
+    return {make_unique<SelectionStatement>(begin, move(cond), move(thenBranch.statement), move(elseBranch.statement)), state};
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::StatementResult SemanticAnalysis::analyzeExpressionStatement(Scope& scope, const AST* ast)
@@ -1130,7 +1222,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeExpressionStatement(S
     unique_ptr<Expression> arg = analyzeExpression(scope, ast->getAny(0));
     if (!arg) return {};
 
-    return {make_unique<ExpressionStatement>(begin, move(arg)), StatementResult::Normal};
+    return {make_unique<ExpressionStatement>(begin, move(arg)), ControlFlow::Normal};
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::StatementResult SemanticAnalysis::analyzeStatement(Scope& scope, const AST* ast)
@@ -1140,7 +1232,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeStatement(Scope& scop
         case AST::DeclarationStatement: return analyzeDeclarationStatement(scope, ast);
         case AST::CompoundStatement: return analyzeCompoundStatement(scope, ast);
         case AST::ReturnStatement: return analyzeReturnStatement(scope, ast);
-        case AST::SelectionStatement: throwError(ast, "selection_statement not implemented yet"); // TODO
+        case AST::SelectionStatement: return analyzeSelectionStatement(scope, ast);
         case AST::WhileStatement: throwError(ast, "while_statement not implemented yet"); // TODO
         case AST::DoWhileStatement: throwError(ast, "do_while_statement not implemented yet"); // TODO
         case AST::ForStatement: throwError(ast, "for_statement not implemented yet"); // TODO
@@ -1490,8 +1582,9 @@ void SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         }
         auto res = analyzeStatement(innerScope, details->getAny(1));
         overload->statement = move(res.statement);
-        if ((res.state == StatementResult::Normal) && (funcType->returnValues.size() == 1))
+        if ((res.state == ControlFlow::Normal) && (funcType->returnValues.size() == 1))
             throwError(declaration, "function must return a value");
+        innerScope.resolve(ControlFlow::Returns);
         for (auto& v : fs.out) {
             if (!v.second->initialized)
                 throwError(declaration, "out parameter " + v.first + " must be initialized");

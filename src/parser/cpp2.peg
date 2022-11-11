@@ -369,7 +369,7 @@ statement_seq
  / e:statement ~{ auxil->reportError("invalid statement", {$0s, $0e}); }
 
 selection_statement
-<- kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectionStatement, {$0s, $0e}, s, c, e, t); }
+<- kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement { $$ = auxil->ast(AST::SelectionStatement, {$0s, $0e}, s, c, t, e); }
  / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement { $$ = auxil->ast(AST::SelectionStatement, {$0s, $0e}, s, c, t, nullptr); }
  ## error handling
  / kw_if (_ s:constexpr)? _ c:expression _ t:compound_statement _ kw_else _ e:compound_statement ~{ auxil->reportError("invalid if-else statement", {$0s, $0e}); }

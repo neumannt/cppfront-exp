@@ -13,6 +13,7 @@
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
+class AST;
 class FunctionType;
 class Namespace;
 class Type;
@@ -23,6 +24,14 @@ class ScopeRoot {
 //---------------------------------------------------------------------------
 struct FunctionScope;
 //---------------------------------------------------------------------------
+/// Possible control flow states
+enum class ControlFlow : unsigned {
+    Normal,
+    Returns,
+    Throws,
+    ReturnsOrThrows
+};
+//---------------------------------------------------------------------------
 /// A (potentially nested) scope
 class Scope {
     public:
@@ -30,10 +39,19 @@ class Scope {
     struct Var {
         /// The type
         const Type* type;
+        /// The scope level
+        unsigned level;
         /// Initialized?
         bool initialized;
         /// Wrapped type?
         bool wrapped;
+    };
+    /// Information about initialized variables
+    struct InitInfo {
+        /// The AST entry (for error reporting)
+        const AST* ast;
+        /// The original variable
+        Var* var;
     };
 
     private:
@@ -47,12 +65,16 @@ class Scope {
     FunctionScope* currentFunction;
     /// All variable definitions
     std::unordered_map<std::string, Var> variables;
+    /// All initialized variables from outer scopes
+    std::vector<InitInfo> initializedVars;
+    /// The level
+    unsigned level;
 
     public:
     /// Constructor
-    explicit Scope(ScopeRoot& root) : root(root), parent(nullptr), currentNamespace(nullptr), currentFunction(nullptr) {}
+    explicit Scope(ScopeRoot& root) : root(root), parent(nullptr), currentNamespace(nullptr), currentFunction(nullptr), level(0) {}
     /// Constructor
-    explicit Scope(Scope& parent) : root(parent.root), parent(&parent), currentNamespace(parent.currentNamespace), currentFunction(parent.currentFunction) {}
+    explicit Scope(Scope& parent) : root(parent.root), parent(&parent), currentNamespace(parent.currentNamespace), currentFunction(parent.currentFunction), level(parent.level + 1) {}
 
     /// Get the current namespace
     Namespace* getCurrentNamespace() const { return currentNamespace; }
@@ -69,6 +91,13 @@ class Scope {
     Var* defineVariable(const std::string& name, const Type* type, bool uninitialized, bool wrapped);
     /// Resolve a variable in this or in parent scopes
     Var* resolveVariable(const std::string& name);
+
+    /// Mark a variable as initialized
+    void markInitialized(const AST* ast, Var* var);
+    /// Get the initialized vars from outer scopes
+    auto& getInitializedVars() const { return initializedVars; }
+    /// Propagate initialization information up
+    void resolve(ControlFlow cf);
 };
 //---------------------------------------------------------------------------
 /// Information about the current function (if any)

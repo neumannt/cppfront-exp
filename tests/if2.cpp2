@@ -1,0 +1,10 @@
+//test failure compiling
+//message variable might be uninitialized after 'if'
+
+// incomplete variable initialization
+f: (x:bool) -> int = {
+   r:int;
+   if x { r=1; }
+   return r;
+}
+

@@ -321,12 +321,16 @@ void CppOut::generateStatement(const Statement& s)
         case Statement::Type::Variable: {
             auto& v = static_cast<const VariableStatement&>(s);
             advance(v.getBegin());
-            writeType(v.getDeclType());
-            write(" ", v.getName());
             if (!!v.getInit()) {
+                writeType(v.getDeclType());
+                write(" ", v.getName());
                 write("(");
                 generateExpression(*v.getInit());
                 write(")");
+            } else {
+                write("cpp2::deferred_init<");
+                writeType(v.getDeclType());
+                write("> ", v.getName());
             }
             write(";");
             break;
@@ -340,6 +344,31 @@ void CppOut::generateStatement(const Statement& s)
                 generateExpression(*r.getExpression());
             }
             write(";");
+            break;
+        }
+        case Statement::Type::Selection: {
+            auto& i = static_cast<const SelectionStatement&>(s);
+            advance(i.getBegin());
+            write("if (");
+            generateExpression(*i.getCondition());
+            write(") ");
+            if (i.getThenBranch()->getType() == Statement::Type::Selection) {
+                write("{");
+                generateStatement(*i.getThenBranch());
+                write("}");
+            } else {
+                generateStatement(*i.getThenBranch());
+            }
+            if (i.getElseBranch()) {
+                write(" else ");
+                if (i.getThenBranch()->getType() == Statement::Type::Selection) {
+                    write("{");
+                    generateStatement(*i.getElseBranch());
+                    write("}");
+                } else {
+                    generateStatement(*i.getElseBranch());
+                }
+            }
             break;
         }
         case Statement::Type::Expression: {
