@@ -132,17 +132,17 @@ bool SemanticAnalysis::loadStdlib()
     return true;
 }
 //---------------------------------------------------------------------------
-void SemanticAnalysis::addError(SourceLocation loc, string text)
+void SemanticAnalysis::throwError(SourceLocation loc, string text)
 // Store an error message
 {
     errors.emplace_back(loc, move(text));
+    throw Error();
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::addError(const AST* loc, std::string text)
+void SemanticAnalysis::throwError(const AST* loc, std::string text)
 // Store an error message
 {
-    addError(mapping.getBegin(loc->getRange()), move(text));
-    return false;
+    throwError(mapping.getBegin(loc->getRange()), move(text));
 }
 //---------------------------------------------------------------------------
 string_view SemanticAnalysis::accessText(const AST* ast)
@@ -231,8 +231,7 @@ bool SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     }
 
     // TODO Check user defined conversions
-    addError(loc, "no type conversion found");
-    return false;
+    throwError(loc, "no type conversion found");
 }
 //---------------------------------------------------------------------------
 const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right)
@@ -250,8 +249,7 @@ const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, con
             if (e.has_value()) {
                 auto ft = e->first->accessOverload(e->second).type;
                 if (ft->getReturnValues().size() != 1) {
-                    addError(ast, "operator must return a single value");
-                    return nullptr;
+                    throwError(ast, "operator must return a single value");
                 } else {
                     return ft->getReturnValues()[0].second;
                 }
@@ -267,10 +265,8 @@ Declaration* SemanticAnalysis::resolveUnqualifiedId(Scope& scope, const AST* ast
 // Resolve an unqualified id
 {
     auto subType = ast->getSubType<ast::UnqualifiedId>();
-    if (subType == ast::UnqualifiedId::Template) {
-        addError(ast, "templates not implemented yet"); // TODO
-        return nullptr;
-    }
+    if (subType == ast::UnqualifiedId::Template)
+        throwError(ast, "templates not implemented yet"); // TODO
     auto name = DeclarationId(extractIdentifier(ast->get(0, AST::Identifier)));
     auto ns = scope.getCurrentNamespace();
     while (ns) {
@@ -278,17 +274,14 @@ Declaration* SemanticAnalysis::resolveUnqualifiedId(Scope& scope, const AST* ast
         if (d) return d;
         ns = ns->getParent();
     }
-    addError(ast, "unknown type name '" + name.name + "'");
-    return nullptr;
+    throwError(ast, "unknown type name '" + name.name + "'");
 }
 //---------------------------------------------------------------------------
 Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
 // Resolve a qualified id
 {
-    if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested) {
-        addError(ast, "type name expected");
-        return nullptr;
-    }
+    if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested)
+        throwError(ast, "type name expected");
 
     // Interpret absolute path names
     auto nast = ast->get(0, AST::NestedNameSpecifier);
@@ -303,44 +296,34 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
     // And resolve the path
     for (auto e : parts) {
         auto subType = e->getSubType<ast::UnqualifiedId>();
-        if (subType == ast::UnqualifiedId::Template) {
-            addError(e, "templates not implemented yet"); // TODO
-            return nullptr;
-        }
+        if (subType == ast::UnqualifiedId::Template)
+            throwError(e, "templates not implemented yet");
         auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
 
         auto d = ns->findDeclaration(name);
-        if (!d) {
-            addError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
-            return nullptr;
-        }
+        if (!d)
+            throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
         Namespace* next;
         if (auto n = dynamic_cast<NamespaceDeclaration*>(d)) {
             next = n->getNamespace();
         } else if (auto c = dynamic_cast<ClassDeclaration*>(d)) {
             next = c->getClass();
         }
-        if (!next) {
-            addError(e, "'" + name.name + "' is not a namespace");
-            return nullptr;
-        }
+        if (!next)
+            throwError(e, "'" + name.name + "' is not a namespace");
         ns = next;
     }
 
     // Lookup the element itself
     auto e = ast->get(1, AST::UnqualifiedId);
     auto subType = e->getSubType<ast::UnqualifiedId>();
-    if (subType == ast::UnqualifiedId::Template) {
-        addError(ast, "templates not implemented yet"); // TODO
-        return nullptr;
-    }
+    if (subType == ast::UnqualifiedId::Template)
+        throwError(ast, "templates not implemented yet"); // TODO
     auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
 
     auto d = ns->findDeclaration(name);
-    if (!d) {
-        addError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
-        return nullptr;
-    }
+    if (!d)
+        throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
     return d;
 }
 //---------------------------------------------------------------------------
@@ -426,7 +409,7 @@ optional<pair<FunctionDeclaration*, unsigned>> SemanticAnalysis::resolveCall(con
     if (bestCandidate) {
         // Ambiguous?
         if (bestIsAmbiguous) {
-            if (reportErrors) addError(ast, "call is ambiguous");
+            if (reportErrors) throwError(ast, "call is ambiguous");
             return nullopt;
         }
 
@@ -437,30 +420,30 @@ optional<pair<FunctionDeclaration*, unsigned>> SemanticAnalysis::resolveCall(con
                 case FunctionType::ParameterDirection::In:
                 case FunctionType::ParameterDirection::Inout:
                     if (args[index].modifier == CallArg::Modifier::Out) {
-                        if (reportErrors) addError(ast, "modifier 'out' not allowed in argument " + to_string(index + 1));
+                        if (reportErrors) throwError(ast, "modifier 'out' not allowed in argument " + to_string(index + 1));
                         return nullopt;
                     }
                     if (args[index].modifier == CallArg::Modifier::Move) {
-                        if (reportErrors) addError(ast, "modifier 'move' not allowed in argument " + to_string(index + 1));
+                        if (reportErrors) throwError(ast, "modifier 'move' not allowed in argument " + to_string(index + 1));
                         return nullopt;
                     }
                     break;
                 case FunctionType::ParameterDirection::Out:
                     if (args[index].modifier != CallArg::Modifier::Out) {
-                        if (reportErrors) addError(ast, "modifier 'out' required in argument " + to_string(index + 1));
+                        if (reportErrors) throwError(ast, "modifier 'out' required in argument " + to_string(index + 1));
                         return nullopt;
                     }
                     break;
                 case FunctionType::ParameterDirection::Move:
                     if (args[index].modifier != CallArg::Modifier::Move) {
-                        if (reportErrors) addError(ast, "modifier 'move' required in argument " + to_string(index + 1));
+                        if (reportErrors) throwError(ast, "modifier 'move' required in argument " + to_string(index + 1));
                         return nullopt;
                     }
                     break;
                 case FunctionType::ParameterDirection::Copy:
                 case FunctionType::ParameterDirection::Forward:
                     if (args[index].modifier == CallArg::Modifier::Out) {
-                        if (reportErrors) addError(ast, "modifier 'out' not allowed in argument " + to_string(index + 1));
+                        if (reportErrors) throwError(ast, "modifier 'out' not allowed in argument " + to_string(index + 1));
                         return nullopt;
                     }
                     break;
@@ -479,18 +462,18 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, co
         case AST::ExpressionListExpression: return analyzeExpressionListExpression(scope, ast, typeHint);
         case AST::AssignmentExpression: return analyzeAssignmentExpression(scope, ast);
         case AST::BinaryExpression: return analyzeBinaryExpression(scope, ast);
-        case AST::PrefixExpression: addError(ast, "prefix_expression not implemented yet"); return {}; // TODO
-        case AST::PostfixExpression: addError(ast, "postfix_expression not implemented yet"); return {}; // TODO
-        case AST::BracketExpression: addError(ast, "bracket_expression not implemented yet"); return {}; // TODO
-        case AST::ParenExpression: addError(ast, "paren_expression not implemented yet"); return {}; // TODO
-        case AST::DotExpression: addError(ast, "dot_expression not implemented yet"); return {}; // TODO
-        case AST::InspectExpression: addError(ast, "inspect_expression not implemented yet"); return {}; // TODO
+        case AST::PrefixExpression: throwError(ast, "prefix_expression not implemented yet"); // TODO
+        case AST::PostfixExpression: throwError(ast, "postfix_expression not implemented yet"); // TODO
+        case AST::BracketExpression: throwError(ast, "bracket_expression not implemented yet"); // TODO
+        case AST::ParenExpression: throwError(ast, "paren_expression not implemented yet"); // TODO
+        case AST::DotExpression: throwError(ast, "dot_expression not implemented yet"); // TODO
+        case AST::InspectExpression: throwError(ast, "inspect_expression not implemented yet"); // TODO
         case AST::Literal: return analyzeLiteral(ast);
         case AST::UnqualifiedId:
         case AST::QualifiedId: return analyzeIdExpressionExpression(scope, ast);
-        case AST::UnnamedDeclaration: addError(ast, "lambda expressions not implemented yet"); return {}; // TODO
-        case AST::NewExpression: addError(ast, "new expressions not implemented yet"); return {}; // TODO
-        default: addError(ast, "invalid AST"); return {};
+        case AST::UnnamedDeclaration: throwError(ast, "lambda expressions not implemented yet"); // TODO
+        case AST::NewExpression: throwError(ast, "new expressions not implemented yet"); // TODO
+        default: throwError(ast, "invalid AST");
     }
 }
 //---------------------------------------------------------------------------
@@ -563,10 +546,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
                 }
             }
         }
-        if (v > limit) {
-            addError(ast, "integer value out of range");
-            return {};
-        }
+        if (v > limit)
+            throwError(ast, "integer value out of range");
         return make_unique<Literal>(loc, type, text);
     };
 
@@ -585,10 +566,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
                 if (c == '\'') continue;
                 if ((c < '0') || (c > '9')) break;
                 uint64_t v1 = 10 * v, v2 = v1 + (c - '0');
-                if ((v1 < v) || (v2 < v1)) {
-                    addError(ast, "integer value out of range");
-                    return {};
-                }
+                if ((v1 < v) || (v2 < v1))
+                    throwError(ast, "integer value out of range");
                 v = v2;
             }
             return handleInteger(v, text.substr(index), false);
@@ -601,10 +580,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
                 if (c == '\'') continue;
                 if ((c < '0') || (c > '7')) break;
                 uint64_t v1 = 8 * v, v2 = v1 + (c - '0');
-                if ((v1 < v) || (v2 < v1)) {
-                    addError(ast, "integer value out of range");
-                    return {};
-                }
+                if ((v1 < v) || (v2 < v1))
+                    throwError(ast, "integer value out of range");
                 v = v2;
             }
             return handleInteger(v, text.substr(index), true);
@@ -618,10 +595,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
                 if (!(((c >= '0') && (c <= '9')) || ((c >= 'A') && (c <= 'F')) || ((c >= 'a') && (c <= 'f')))) break;
                 unsigned n = ((c >= 'A') && (c <= 'F')) ? (c - 'A' + 10) : (((c >= 'a') && (c <= 'f')) ? (c - 'a' + 10) : (c - '0'));
                 uint64_t v1 = 16 * v, v2 = v1 + n;
-                if ((v1 < v) || (v2 < v1)) {
-                    addError(ast, "integer value out of range");
-                    return {};
-                }
+                if ((v1 < v) || (v2 < v1))
+                    throwError(ast, "integer value out of range");
                 v = v2;
             }
             return handleInteger(v, text.substr(index), true);
@@ -633,7 +608,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeLiteral(const AST* ast)
             if ((text.back() == 'f') || (text.back() == 'F')) return make_unique<Literal>(loc, Type::getFloat(*program), text);
             return make_unique<Literal>(loc, Type::getDouble(*program), text);
     }
-    return {};
+    throwError(ast, "invalid AST");
 }
 //---------------------------------------------------------------------------
 static bool canConvertImplicit(const Type* targetType, const Type* sourceType)
@@ -764,11 +739,10 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
         return make_unique<AssignmentExpression>(loc, leftType, Expression::ValueCategory::Lvalue, op, move(left), move(right));
 
     if (leftType->isConst()) {
-        addError(ast, "assignment of read-only variable");
+        throwError(ast, "assignment of read-only variable");
     } else {
-        addError(ast, "assignment operator not supported for data types");
+        throwError(ast, "assignment operator not supported for data types");
     }
-    return {};
 }
 //---------------------------------------------------------------------------
 unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, const AST* ast)
@@ -863,8 +837,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
             op = BinaryExpression::Modulo;
             id = DeclarationId::OperatorModulo;
             break;
-        case ast::BinaryExpression::Is: addError(ast, "is not implemented yet"); return {}; // TODO
-        case ast::BinaryExpression::As: addError(ast, "as not implemented yet"); return {}; // TODO
+        case ast::BinaryExpression::Is: throwError(ast, "is not implemented yet"); // TODO
+        case ast::BinaryExpression::As: throwError(ast, "as not implemented yet"); // TODO
     }
 
     // Check the input
@@ -949,10 +923,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
             break;
         case BinaryExpression::Plus:
         case BinaryExpression::Minus:
-            if (leftType->isPointerType() || rightType->isPointerType()) {
-                addError(ast, "pointer arithmetic is illegal - use std::span");
-                return {};
-            }
+            if (leftType->isPointerType() || rightType->isPointerType())
+                throwError(ast, "pointer arithmetic is illegal - use std::span");
             [[fallthrough]];
         case BinaryExpression::Mul:
         case BinaryExpression::Div:
@@ -961,18 +933,15 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
             break;
     }
 
-    addError(ast, "binary operator not supported for data types");
-    return {};
+    throwError(ast, "binary operator not supported for data types");
 }
 //---------------------------------------------------------------------------
 std::unique_ptr<Expression> SemanticAnalysis::analyzeExpressionListExpression(Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)
 // Analyze an expression
 {
     // Check if this is something else than a simple value
-    if ((!ast->getAnyOrNull(0)) || (ast->getAnyOrNull(0)->getAnyOrNull(1))) {
-        addError(ast, "implicit object construction not implemented yet"); // TODO
-        return {};
-    }
+    if ((!ast->getAnyOrNull(0)) || (ast->getAnyOrNull(0)->getAnyOrNull(1)))
+        throwError(ast, "implicit object construction not implemented yet"); // TODO
 
     return analyzeExpression(scope, ast->getAny(0)->getAny(0));
 }
@@ -985,27 +954,21 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
     DeclarationId localId(""sv);
     if (ast->getType() == AST::UnqualifiedId) {
         auto subType = ast->getSubType<ast::UnqualifiedId>();
-        if (subType == ast::UnqualifiedId::Template) {
-            addError(ast, "templates not implemented yet"); // TODO
-            return {};
-        }
+        if (subType == ast::UnqualifiedId::Template)
+            throwError(ast, "templates not implemented yet"); // TODO
         localId = DeclarationId(extractIdentifier(ast->get(0, AST::Identifier)));
 
         // A local variable?
         if (auto localVar = scope.resolveVariable(localId.name)) {
-            if (!localVar->initialized) {
-                addError(ast, string(localId.name) + " is used uninitialized here");
-                return {};
-            }
+            if (!localVar->initialized)
+                throwError(ast, string(localId.name) + " is used uninitialized here");
             if (localVar->wrapped)
                 return make_unique<WrappedVariableExpression>(loc, localVar->type, localId.name, nullptr);
             return make_unique<VariableExpression>(loc, localVar->type, localId.name, nullptr);
         }
     } else {
-        if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested) {
-            addError(ast, "type name expected");
-            return {};
-        }
+        if (ast->getSubType<ast::QualifiedId>() != ast::QualifiedId::Nested)
+            throwError(ast, "type name expected");
 
         // Interpret absolute path names
         auto nast = ast->get(0, AST::NestedNameSpecifier);
@@ -1019,50 +982,38 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
         // And resolve the path
         for (auto e : parts) {
             auto subType = e->getSubType<ast::UnqualifiedId>();
-            if (subType == ast::UnqualifiedId::Template) {
-                addError(e, "templates not implemented yet"); // TODO
-                return nullptr;
-            }
+            if (subType == ast::UnqualifiedId::Template)
+                throwError(e, "templates not implemented yet"); // TODO
             auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
 
             auto d = ns->findDeclaration(name);
-            if (!d) {
-                addError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
-                return nullptr;
-            }
+            if (!d)
+                throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
             Namespace* next;
             if (auto n = dynamic_cast<NamespaceDeclaration*>(d)) {
                 next = n->getNamespace();
             } else if (auto c = dynamic_cast<ClassDeclaration*>(d)) {
                 next = c->getClass();
             }
-            if (!next) {
-                addError(e, "'" + name.name + "' is not a namespace");
-                return nullptr;
-            }
+            if (!next)
+                throwError(e, "'" + name.name + "' is not a namespace");
             ns = next;
         }
 
         // The last part of the path
         auto e = ast->get(1, AST::UnqualifiedId);
         auto subType = e->getSubType<ast::UnqualifiedId>();
-        if (subType == ast::UnqualifiedId::Template) {
-            addError(ast, "templates not implemented yet"); // TODO
-            return nullptr;
-        }
+        if (subType == ast::UnqualifiedId::Template)
+            throwError(ast, "templates not implemented yet"); // TODO
         localId = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
     }
 
     // Lookup the element itself
     auto d = ns->findDeclaration(localId);
-    if (!d) {
-        addError(ast, "'" + localId.name + "' not found in namespace '" + ns->getName() + "'");
-        return {};
-    }
-    if (d->getCategory() != Declaration::Category::Variable) {
-        addError(ast, "'" + localId.name + "' is not a variable");
-        return {};
-    }
+    if (!d)
+        throwError(ast, "'" + localId.name + "' not found in namespace '" + ns->getName() + "'");
+    if (d->getCategory() != Declaration::Category::Variable)
+        throwError(ast, "'" + localId.name + "' is not a variable");
     auto v = static_cast<VariableDeclaration*>(d);
     return make_unique<VariableExpression>(loc, v->getType(), v->getName().name, v->getContainingNamespace());
 }
@@ -1076,45 +1027,34 @@ unique_ptr<Statement> SemanticAnalysis::analyzeDeclarationStatement(Scope& scope
         case AST::Declaration: {
             // Check the name
             auto name = extractDeclarationId(decl->getAny(0));
-            if (!name.isRegular()) {
-                addError(decl, "operator definition not allowed here");
-                return {};
-            }
+            if (!name.isRegular())
+                throwError(decl, "operator definition not allowed here");
             auto details = decl->get(1, AST::UnnamedDeclaration);
             bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
-            if (isFunction) {
-                addError(decl, "local function definitions not implemented yet"); // TODO
-                return {};
-            }
-            if (scope.definesVariable(name.name)) {
-                addError(decl, "duplicate definition of '" + name.name + "'");
-                return {};
-            }
+            if (isFunction)
+                throwError(decl, "local function definitions not implemented yet"); // TODO
+            if (scope.definesVariable(name.name))
+                throwError(decl, "duplicate definition of '" + name.name + "'");
 
             // Check the type (if any)
             const Type* type = nullptr;
             if (details->getAnyOrNull(0)) {
                 type = analyzeTypeIdExpression(scope, details->getAnyOrNull(0));
-                if (!type) return {};
             }
 
             // Check the initial value (if any)
             unique_ptr<Expression> init;
             if (details->getAnyOrNull(1)) {
-                if (details->getAny(1)->getType() != AST::ExpressionStatement) {
-                    addError(details->getAny(1), "expression required");
-                    return {};
-                };
+                if (details->getAny(1)->getType() != AST::ExpressionStatement)
+                    throwError(details->getAny(1), "expression required");
                 init = analyzeExpression(scope, details->getAny(1)->getAny(0), type);
                 if (!init) return {};
                 if (!type) {
                     type = init->getType();
                 } else if (!canConvertImplicit(type, init->getType())) {
                     VariableExpression vr(begin, type, name.name, nullptr);
-                    if (!resolveOperator(scope, ast, DeclarationId(DeclarationId::Category::OperatorAssignment), vr, *init)) {
-                        addError(decl, "type mismatch in initialization");
-                        return {};
-                    }
+                    if (!resolveOperator(scope, ast, DeclarationId(DeclarationId::Category::OperatorAssignment), vr, *init))
+                        throwError(decl, "type mismatch in initialization");
                 }
             }
 
@@ -1123,19 +1063,15 @@ unique_ptr<Statement> SemanticAnalysis::analyzeDeclarationStatement(Scope& scope
             return make_unique<VariableStatement>(begin, name.name, type, move(init));
         }
         case AST::Namespace:
-            addError(begin, "namespace definition not allowed here");
-            return {};
+            throwError(begin, "namespace definition not allowed here");
         case AST::Class:
-            addError(begin, "local classes not implemented yet"); // TODO
-            return {};
+            throwError(begin, "local classes not implemented yet"); // TODO
         case AST::Using:
         case AST::UsingDecltype:
-            addError(begin, "local using not implemented yet"); // TODO
-            return {};
+            throwError(begin, "local using not implemented yet"); // TODO
         case AST::Template:
-            addError(begin, "templates not implemented yet"); // TODO
-            return {};
-        default: addError(begin, "invalid AST"); return {};
+            throwError(begin, "templates not implemented yet"); // TODO
+        default: throwError(begin, "invalid AST");
     }
 }
 //---------------------------------------------------------------------------
@@ -1158,37 +1094,27 @@ unique_ptr<Statement> SemanticAnalysis::analyzeReturnStatement(Scope& scope, con
 // Analyze a return statement
 {
     auto fs = scope.getCurrentFunction();
-    if (!fs) {
-        addError(ast, "return statements are only allowed within functions");
-        return {};
-    }
+    if (!fs)
+        throwError(ast, "return statements are only allowed within functions");
     for (auto& v : fs->out) {
-        if (!v.second->initialized) {
-            addError(ast, "out parameter " + v.first + " must be initialized");
-            return {};
-        }
+        if (!v.second->initialized)
+            throwError(ast, "out parameter " + v.first + " must be initialized");
     }
     auto ft = fs->functionType;
     auto begin = mapping.getBegin(ast->getRange());
     unique_ptr<Expression> arg;
     if (ft->returnValues.empty()) {
-        if (ast->getAny(0)) {
-            addError(ast, "cannot return a value in function returning void");
-            return {};
-        }
+        if (ast->getAny(0))
+            throwError(ast, "cannot return a value in function returning void");
     } else if ((ft->returnValues.size() == 1) && (ft->returnValues[0].first.empty())) {
-        if (!ast->getAny(0)) {
-            addError(ast, "cannot return a value in function returning void");
-            return {};
-        }
+        if (!ast->getAny(0))
+            throwError(ast, "cannot return a value in function returning void");
         arg = analyzeExpression(scope, ast->getAny(0), ft->returnValues[0].second);
         if ((!arg) || (!enforceConvertible(ast->getAny(0), arg, ft->returnValues[0].second))) return {};
     } else {
         // TODO check that return values have been assigned
-        if (ast->getAny(0)) {
-            addError(ast, "return values are passed via named arguments in this function");
-            return {};
-        }
+        if (ast->getAny(0))
+            throwError(ast, "return values are passed via named arguments in this function");
     }
 
     return make_unique<ReturnStatement>(begin, move(arg));
@@ -1211,13 +1137,13 @@ std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, cons
         case AST::DeclarationStatement: return analyzeDeclarationStatement(scope, ast);
         case AST::CompoundStatement: return analyzeCompoundStatement(scope, ast);
         case AST::ReturnStatement: return analyzeReturnStatement(scope, ast);
-        case AST::SelectionStatement: addError(ast, "selection_statement not implemented yet"); return {}; // TODO
-        case AST::WhileStatement: addError(ast, "while_statement not implemented yet"); return {}; // TODO
-        case AST::DoWhileStatement: addError(ast, "do_while_statement not implemented yet"); return {}; // TODO
-        case AST::ForStatement: addError(ast, "for_statement not implemented yet"); return {}; // TODO
-        case AST::InspectExpression: addError(ast, "inspect_statment not implemented yet"); return {}; // TODO
+        case AST::SelectionStatement: throwError(ast, "selection_statement not implemented yet"); // TODO
+        case AST::WhileStatement: throwError(ast, "while_statement not implemented yet"); // TODO
+        case AST::DoWhileStatement: throwError(ast, "do_while_statement not implemented yet"); // TODO
+        case AST::ForStatement: throwError(ast, "for_statement not implemented yet"); // TODO
+        case AST::InspectExpression: throwError(ast, "inspect_statment not implemented yet"); // TODO
         case AST::ExpressionStatement: return analyzeExpressionStatement(scope, ast);
-        default: addError(ast, "invalid AST"); return {};
+        default: throwError(ast, "invalid AST");
     }
 }
 //---------------------------------------------------------------------------
@@ -1230,10 +1156,8 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
         isConst = true;
         ast = ast->getAny(0);
     }
-    if ((ast->getType() == AST::TypeModifier) && (ast->getSubType<ast::TypeModifier>() == ast::TypeModifier::Const) && isConst) {
-        addError(ast, "const qualifier most only appear once");
-        return nullptr;
-    }
+    if ((ast->getType() == AST::TypeModifier) && (ast->getSubType<ast::TypeModifier>() == ast::TypeModifier::Const) && isConst)
+        throwError(ast, "const qualifier most only appear once");
 
     // Interpret the type
     switch (ast->getType()) {
@@ -1241,10 +1165,8 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
         case AST::QualifiedId: {
             auto decl = (ast->getType() == AST::UnqualifiedId) ? resolveUnqualifiedId(scope, ast) : resolveQualifiedId(scope, ast);
             if (!decl) return nullptr;
-            if (!decl->isType()) {
-                addError(ast, "invalid type expression");
-                return nullptr;
-            }
+            if (!decl->isType())
+                throwError(ast, "invalid type expression");
             return decl->getCorrespondingType()->withConst(isConst);
         }
         case AST::FundamentalType: {
@@ -1254,15 +1176,13 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
                     // char can be modified by signed and unsigned
                     bool isSigned = false, isUnsigned = false;
                     for (auto m : List<AST::FundamentalTypeModifier>(ast->getOrNull(0, AST::FundamentalTypeModifierList))) {
-                        if (isSigned || isUnsigned) {
-                            addError(m, "invalid type modifier");
-                            return nullptr;
-                        }
+                        if (isSigned || isUnsigned)
+                            throwError(m, "invalid type modifier");
                         switch (m->getSubType<ast::FundamentalTypeModifier>()) {
                             case ast::FundamentalTypeModifier::Signed: isSigned = true; break;
                             case ast::FundamentalTypeModifier::Unsigned: isUnsigned = true; break;
-                            case ast::FundamentalTypeModifier::Long: addError(m, "'long' is not valid for char types"); return nullptr;
-                            case ast::FundamentalTypeModifier::Short: addError(m, "'short' is not valid for char types"); return nullptr;
+                            case ast::FundamentalTypeModifier::Long: throwError(m, "'long' is not valid for char types");
+                            case ast::FundamentalTypeModifier::Short: throwError(m, "'short' is not valid for char types");
                         }
                     }
                     // by default we assume char is signed. Should we make this platform specific? Could also be handled when writing C++1 out
@@ -1282,25 +1202,24 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
                     bool isShort = false;
                     unsigned isLong = 0;
                     auto invalidModifier = [this](const AST* ast) {
-                        addError(ast, "invalid type modifier");
-                        return nullptr;
+                        throwError(ast, "invalid type modifier");
                     };
                     for (auto m : List<AST::FundamentalTypeModifier>(ast->getOrNull(0, AST::FundamentalTypeModifierList))) {
                         switch (m->getSubType<ast::FundamentalTypeModifier>()) {
                             case ast::FundamentalTypeModifier::Signed:
-                                if (isSigned || isUnsigned) return invalidModifier(m);
+                                if (isSigned || isUnsigned) invalidModifier(m);
                                 isSigned = true;
                                 break;
                             case ast::FundamentalTypeModifier::Unsigned:
-                                if (isSigned || isUnsigned) return invalidModifier(m);
+                                if (isSigned || isUnsigned) invalidModifier(m);
                                 isUnsigned = true;
                                 break;
                             case ast::FundamentalTypeModifier::Long:
-                                if (isShort || (isLong > 1)) return invalidModifier(m);
+                                if (isShort || (isLong > 1)) invalidModifier(m);
                                 ++isLong;
                                 break;
                             case ast::FundamentalTypeModifier::Short:
-                                if (isShort || isLong) return invalidModifier(m);
+                                if (isShort || isLong) invalidModifier(m);
                                 isShort = true;
                                 break;
                         }
@@ -1320,7 +1239,7 @@ const Type* SemanticAnalysis::analyzeIdExpression(Scope& scope, const AST* ast)
             }
             return nullptr;
         }
-        default: addError(ast, "invalid AST"); return nullptr;
+        default: throwError(ast, "invalid AST");
     }
 }
 //---------------------------------------------------------------------------
@@ -1342,34 +1261,27 @@ const Type* SemanticAnalysis::analyzeTypeIdExpression(Scope& scope, const AST* a
     }
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, unique_ptr<Expression>* value)
+void SemanticAnalysis::analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, unique_ptr<Expression>* value)
 // Analyze an unnamed declaration
 {
     auto statement = ast->getAnyOrNull(1);
     if (ast->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function) {
         // TODO
-        addError(ast, "nested function declarations not supported yet");
-        return false;
+        throwError(ast, "nested function declarations not supported yet");
     } else {
         *type = nullptr;
         if (ast->getAny(0)) {
-            if (!((*type = analyzeTypeIdExpression(scope, ast->getAny(0)))))
-                return false;
+            *type = analyzeTypeIdExpression(scope, ast->getAny(0));
         } else if (!statement) {
-            addError(ast, "a deduced type must have an = initializer");
-            return false;
+            throwError(ast, "a deduced type must have an = initializer");
         }
         value->reset();
         if (statement) {
-            if (statement->getType() != AST::ExpressionStatement) {
-                addError(statement, "invalid initializer");
-                return false;
-            }
-            if (!((*value = analyzeExpression(scope, statement->getAny(0)))))
-                return false;
+            if (statement->getType() != AST::ExpressionStatement)
+                throwError(statement, "invalid initializer");
+            *value = analyzeExpression(scope, statement->getAny(0));
         }
     }
-    return true;
 }
 //---------------------------------------------------------------------------
 const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AST* ast, vector<unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset)
@@ -1396,10 +1308,8 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
     auto bitMask = [](FlagValues v) { return 1u << v; };
     auto hasMultipleBits = [](unsigned v) { return !!(v & (v - 1)); };
     for (auto m : List<AST::FunctionModifier>(modifierList)) {
-        if ((!classScope) && (m->getSubType<ast::FunctionModifier>() != ast::FunctionModifier::Static)) {
-            addError(m, "modifier is allowed for class methods");
-            return nullptr;
-        }
+        if ((!classScope) && (m->getSubType<ast::FunctionModifier>() != ast::FunctionModifier::Static))
+            throwError(m, "modifier is allowed for class methods");
         FunctionType::ParameterDirection newDirection = FunctionType::ParameterDirection::Copy;
         unsigned newFlags = ~0u;
         switch (m->getSubType<ast::FunctionModifier>()) {
@@ -1417,24 +1327,18 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
             case ast::FunctionModifier::Deleted: newFlags = Deleted; break;
         }
         if (newDirection != FunctionType::ParameterDirection::Copy) {
-            if (implicitDirection != FunctionType::ParameterDirection::Copy) {
-                addError(m, "conflicting modifier");
-                return nullptr;
-            }
+            if (implicitDirection != FunctionType::ParameterDirection::Copy)
+                throwError(m, "conflicting modifier");
             implicitDirection = newDirection;
         }
         if (~newFlags) {
             newFlags = 1 << newFlags;
-            if (flags & newFlags) {
-                addError(m, "conflicting modifier");
-                return nullptr;
-            }
+            if (flags & newFlags)
+                throwError(m, "conflicting modifier");
             flags |= newFlags;
         }
-        if (((flags & bitMask(Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) | (hasMultipleBits(flags & (bitMask(Virtual) | bitMask(Abstract) | bitMask(Override) | bitMask(Final))))) {
-            addError(m, "conflicting modifier");
-            return nullptr;
-        }
+        if (((flags & bitMask(Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) | (hasMultipleBits(flags & (bitMask(Virtual) | bitMask(Abstract) | bitMask(Override) | bitMask(Final)))))
+            throwError(m, "conflicting modifier");
     }
     if (implicitDirection == FunctionType::ParameterDirection::Copy) implicitDirection = FunctionType::ParameterDirection::In;
 
@@ -1469,14 +1373,13 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
         auto d = p->get(1, AST::Declaration);
         unique_ptr<Expression> defaultArgument;
         pa.name = extractIdentifier(d->getAny(0));
-        if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument)) return nullptr;
+        analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &pa.type, &defaultArgument);
         if (defaultArguments) {
             if (defaultArgument) {
                 if (defaultArguments->empty()) *defaultArgumentsOffset = slot;
                 defaultArguments->push_back(move(defaultArgument));
             } else if (!defaultArguments->empty()) {
-                addError(p, "default argument missing");
-                return nullptr;
+                throwError(p, "default argument missing");
             }
         }
         parameter.push_back(move(pa));
@@ -1488,40 +1391,33 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
     if (returnList) {
         if (returnList->getSubType<ast::ReturnList>() == ast::ReturnList::Single) {
             auto rt = analyzeIdExpression(scope, returnList->getAny(0));
-            if (!rt) return nullptr;
             returnTypes.emplace_back(""sv, rt);
         } else {
             auto pdl = returnList->get(0, AST::ParameterDeclarationList);
             for (auto r : List<AST::ParameterDeclaration>(pdl->getOrNull(0, AST::ParameterDeclarationSeq))) {
-                if (r->getAny(0)) {
-                    addError(r->getAny(0), "direction modifier not allowed in return list");
-                    return nullptr;
-                }
+                if (r->getAny(0))
+                    throwError(r->getAny(0), "direction modifier not allowed in return list");
                 auto d = ast->get(1, AST::Declaration);
                 auto name = extractIdentifier(d->getAny(0));
                 const Type* type;
                 unique_ptr<Expression> defaultArgument;
-                if (!analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument)) return nullptr;
-                if (defaultArgument) {
-                    addError(d, "return value cannot have default values");
-                    return nullptr;
-                }
+                analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument);
+                if (defaultArgument)
+                    throwError(d, "return value cannot have default values");
                 returnTypes.emplace_back(name, type);
             }
         }
     }
 
     // Contracts are not supported yet
-    if (contractList) {
+    if (contractList)
         // TODO
-        addError(contractList, "contracts not implemented yet");
-        return nullptr;
-    }
+        throwError(contractList, "contracts not implemented yet");
 
     return FunctionType::get(*program, move(parameter), move(returnTypes), throwsSpecifier);
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
+void SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
 // Analyze a declaration
 {
     auto loc = mapping.getBegin(declaration->getRange());
@@ -1534,14 +1430,13 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
     if (decl) {
         // That is only permissive for functions
         if ((!isFunction) || (!decl->isFunction()))
-            return addError(declaration, "duplicate definition");
+            throwError(declaration, "duplicate definition");
     } else {
         if (isFunction) {
             decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, move(name), scope.getCurrentNamespace()));
         } else {
-            if (!details->getAnyOrNull(0)) return addError(declaration, "type required");
+            if (!details->getAnyOrNull(0)) throwError(declaration, "type required");
             auto type = analyzeTypeIdExpression(scope, details->getAnyOrNull(0));
-            if (!type) return false;
             decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name), scope.getCurrentNamespace(), type));
         }
     }
@@ -1553,21 +1448,18 @@ bool SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
         vector<unique_ptr<Expression>> defaultArguments;
         unsigned defaultArgumentsOffset;
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset);
-        if (!funcType) return false;
         auto existing = fdecl->findFunctionOverload(funcType);
         if (existing) {
             if (existing->type == funcType)
-                return addError(declaration, "function overload with that signature already exists");
-            return addError(declaration, "function overload with ambiguous signature already exists");
+                throwError(declaration, "function overload with that signature already exists");
+            throwError(declaration, "function overload with ambiguous signature already exists");
         }
         slot = fdecl->addFunctionOverload(loc, funcType, move(defaultArguments), defaultArgumentsOffset);
     }
     if (!inStdlib) program->trackSourceOrder(decl, slot);
-
-    return true;
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
+void SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 // Analyze a definition
 {
     auto name = extractDeclarationId(declaration->getAny(0));
@@ -1576,7 +1468,7 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
 
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (isFunction) {
-        if (inStdlib && (!details->getAnyOrNull(1))) return true;
+        if (inStdlib && (!details->getAnyOrNull(1))) return;
 
         auto fdecl = static_cast<FunctionDeclaration*>(decl);
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr);
@@ -1586,39 +1478,31 @@ bool SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         Scope innerScope(scope);
         innerScope.setCurrentFunction(&fs);
         for (auto& p : funcType->getParameters()) {
-            if (innerScope.definesVariable(p.name)) {
-                addError(declaration, "duplicate definition of " + p.name);
-                return false;
-            }
+            if (innerScope.definesVariable(p.name))
+                throwError(declaration, "duplicate definition of " + p.name);
             auto type = p.type;
             if (p.direction == FunctionType::ParameterDirection::In) type = type->getAsConst();
             auto var = innerScope.defineVariable(p.name, type, p.direction == FunctionType::ParameterDirection::Out, p.direction == FunctionType::ParameterDirection::Out);
             if (p.direction == FunctionType::ParameterDirection::Out) fs.out.push_back({p.name, var});
         }
         overload->statement = analyzeStatement(innerScope, details->getAny(1));
-        if (!overload->statement) return false;
         for (auto& v : fs.out) {
-            if (!v.second->initialized) {
-                addError(declaration, "out parameter " + v.first + " must be initialized");
-                return false;
-            }
+            if (!v.second->initialized)
+                throwError(declaration, "out parameter " + v.first + " must be initialized");
         }
-        return true;
     } else {
         // Declaration only?
         if (!details->getAnyOrNull(1)) {
-            if (inStdlib) return true;
-            return addError(declaration, "a global declaration must be initialized");
+            if (inStdlib) return;
+            throwError(declaration, "a global declaration must be initialized");
         }
 
         // TODO
-        addError(declaration, "variable declarations not implemented yet");
+        throwError(declaration, "variable declarations not implemented yet");
     }
-
-    return true;
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phase)
+void SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phase)
 // Analyze a namespace
 {
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
@@ -1626,22 +1510,20 @@ bool SemanticAnalysis::analyzeNamespace(Scope& scope, const AST* ast, Phase phas
     if (!decl) {
         decl = scope.getCurrentNamespace()->addDeclaration(make_unique<NamespaceDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace()));
     } else if (decl->getCategory() != Declaration::Category::Namespace) {
-        return addError(ast, "duplicate definition");
+        throwError(ast, "duplicate definition");
     }
     if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 0);
 
     {
         Scope innerScope(scope);
         innerScope.setCurrentNamespace(static_cast<NamespaceDeclaration*>(decl)->getNamespace());
-        if (!analyzeDeclarations(innerScope, ast->getAnyOrNull(1), phase)) return false;
+        analyzeDeclarations(innerScope, ast->getAnyOrNull(1), phase);
     }
 
     if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 1);
-
-    return true;
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeClass(Scope& scope, const AST* ast, Phase phase)
+void SemanticAnalysis::analyzeClass(Scope& scope, const AST* ast, Phase phase)
 // Analyze a class definition
 {
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
@@ -1649,77 +1531,71 @@ bool SemanticAnalysis::analyzeClass(Scope& scope, const AST* ast, Phase phase)
     if (!decl) {
         decl = scope.getCurrentNamespace()->addDeclaration(make_unique<ClassDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace(), program.get()));
     } else if (phase == Phase::Declarations) {
-        return addError(ast, "duplicate definition");
+        throwError(ast, "duplicate definition");
     }
     if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 0);
 
-    if (ast->getAnyOrNull(1)) {
+    if (ast->getAnyOrNull(1))
         // TODO
-        return addError(ast, "inheritance not implemented yet");
-    }
+        throwError(ast, "inheritance not implemented yet");
 
     {
         Scope innerScope(scope);
         innerScope.setCurrentNamespace(static_cast<ClassDeclaration*>(decl)->getClass());
-        if (!analyzeDeclarations(innerScope, ast->getAnyOrNull(2), phase)) return false;
+        analyzeDeclarations(innerScope, ast->getAnyOrNull(2), phase);
     }
 
     if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 1);
-
-    return true;
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype)
+void SemanticAnalysis::analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype)
 // Analyze a typedef
 {
-    if (phase != Phase::Declarations) return true;
+    if (phase != Phase::Declarations) return;
 
     DeclarationId name = string(extractIdentifier(ast->get(0, AST::Identifier)));
     const Type* type;
     if (!usingDecltype) {
-        if (!(type = analyzeTypeIdExpression(scope, ast->getAny(1)))) return false;
+        type = analyzeTypeIdExpression(scope, ast->getAny(1));
     } else {
         Scope innerScope(scope); // TODO set to ignore lifetime checks
-        auto e = analyzeExpression(innerScope, ast->getAny(1));
-        if (!e) return false;
-        type = e->getType();
+        type = analyzeExpression(innerScope, ast->getAny(1))->getType();
     }
     auto decl = scope.getCurrentNamespace()->findDeclaration(name);
     if (!decl) {
         decl = scope.getCurrentNamespace()->addDeclaration(make_unique<TypedefDeclaration>(mapping.getBegin(ast->getRange()), name, scope.getCurrentNamespace(), type));
     } else {
-        return addError(ast, "duplicate definition");
+        throwError(ast, "duplicate definition");
     }
 
     if (phase == Phase::Declarations && !inStdlib) program->trackSourceOrder(decl, 0);
-
-    return true;
 }
 //---------------------------------------------------------------------------
-bool SemanticAnalysis::analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase)
+void SemanticAnalysis::analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase)
 // Analyze a parse tree
 {
     // Process all declarations
     for (auto d : ASTList(declarations))
         switch (d->getType()) {
             case AST::Type::Declaration:
-                if (!((phase == Phase::Declarations) ? analyzeDeclaration(scope, d) : analyzeDefinition(scope, d))) return false;
+                if (phase == Phase::Declarations)
+                    analyzeDeclaration(scope, d);
+                else
+                    analyzeDefinition(scope, d);
                 break;
             case AST::Type::Namespace:
-                if (!analyzeNamespace(scope, d, phase)) return false;
+                analyzeNamespace(scope, d, phase);
                 break;
             case AST::Type::Class:
-                if (!analyzeClass(scope, d, phase)) return false;
+                analyzeClass(scope, d, phase);
                 break;
             case AST::Type::Using:
             case AST::Type::UsingDecltype:
-                if (!analyzeUsing(scope, d, phase, d->getType() == AST::Type::UsingDecltype)) return false;
+                analyzeUsing(scope, d, phase, d->getType() == AST::Type::UsingDecltype);
                 break;
-            case AST::Type::Template: return addError(d, "template not implemented yet");
-            default: return addError(d, "invalid AST");
+            case AST::Type::Template: throwError(d, "template not implemented yet");
+            default: throwError(d, "invalid AST");
         }
-
-    return true;
 }
 //---------------------------------------------------------------------------
 bool SemanticAnalysis::analyze(const AST* translationUnit)
@@ -1732,11 +1608,15 @@ bool SemanticAnalysis::analyze(const AST* translationUnit)
     Scope scope(scopeRoot);
     scope.setCurrentNamespace(target->getGlobalNamespace());
 
-    // Process all declarations
-    if (!analyzeDeclarations(scope, declarations, Phase::Declarations)) return false;
+    try {
+        // Process all declarations
+        analyzeDeclarations(scope, declarations, Phase::Declarations);
 
-    // Now process all definitions
-    if (!analyzeDeclarations(scope, declarations, Phase::Definitions)) return false;
+        // Now process all definitions
+        analyzeDeclarations(scope, declarations, Phase::Definitions);
+    } catch (const Error&) {
+        return false;
+    }
 
     return true;
 }

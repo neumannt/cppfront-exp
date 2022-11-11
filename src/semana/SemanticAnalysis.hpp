@@ -45,10 +45,10 @@ class SemanticAnalysis {
     /// Are we currently processing the mocked stdlib?
     bool inStdlib = false;
 
+    /// Store an error message and throw an exception
+    [[noreturn]] void throwError(SourceLocation loc, std::string text);
     /// Store an error message
-    void addError(SourceLocation loc, std::string text);
-    /// Store an error message
-    bool addError(const AST* loc, std::string text);
+    [[noreturn]] void throwError(const AST* loc, std::string text);
 
     /// Access the content of a node
     std::string_view accessText(const AST* ast);
@@ -111,24 +111,24 @@ class SemanticAnalysis {
     /// Analyze an id-expression with optional pointer markers
     const Type* analyzeTypeIdExpression(Scope& scope, const AST* ast);
     /// Analyze an unnamed declaration
-    bool analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
+    void analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
     /// Analyze a function type declaration
     const FunctionType* analyzeFunctionType(Scope& scope, const AST* ast, std::vector<std::unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset);
     /// Analyze a declaration
-    bool analyzeDeclaration(Scope& scope, const AST* declaration);
+    void analyzeDeclaration(Scope& scope, const AST* declaration);
     /// Analyze a definition (ignore declarations
-    bool analyzeDefinition(Scope& scope, const AST* definition);
+    void analyzeDefinition(Scope& scope, const AST* definition);
     /// Phases of analysis
     enum class Phase : bool { Declarations,
                               Definitions };
     /// Analyze a namespace
-    bool analyzeNamespace(Scope& scope, const AST* ast, Phase phase);
+    void analyzeNamespace(Scope& scope, const AST* ast, Phase phase);
     /// Analyze a class definition
-    bool analyzeClass(Scope& scope, const AST* ast, Phase phase);
+    void analyzeClass(Scope& scope, const AST* ast, Phase phase);
     /// Analyze a typedef
-    bool analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype);
+    void analyzeUsing(Scope& scope, const AST* ast, Phase phase, bool usingDecltype);
     /// Analyze all declarations
-    bool analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase);
+    void analyzeDeclarations(Scope& scope, const AST* declarations, Phase phase);
 
     public:
     /// Constructor
