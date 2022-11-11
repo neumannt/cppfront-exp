@@ -59,7 +59,8 @@ throws_specifier
 <- kw_throws { $$ = auxil->ast(AST::Token, {$0s, $0e}); }
 
 return_list
-<- '->' _ e:id_expression { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::Single, {$0s, $0e}, e); }
+<- '->' _ e:id_expression _ '&' { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::SingleRef, {$0s, $0e}, e); }
+ / '->' _ e:id_expression { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::Single, {$0s, $0e}, e); }
  / '->' _ l:parameter_declaration_list { $$ = auxil->ast2(AST::ReturnList, ast::ReturnList::Multiple, {$0s, $0e}, l); }
 
 contract

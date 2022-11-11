@@ -17,6 +17,21 @@ class Type;
 /// A function type
 class FunctionType : public Type {
     public:
+    /// Flags that can be attached to a type
+    enum TypeFlags {
+        ReturnsRef,
+        Throws
+    };
+    /// Flags that can be attached to a function declaration
+    enum DeclarationFlags {
+        Static,
+        Virtual,
+        Abstract,
+        Override,
+        Final,
+        Defaulted,
+        Deleted
+    };
     /// Known directions
     enum class ParameterDirection {
         In,
@@ -42,12 +57,12 @@ class FunctionType : public Type {
     std::vector<Parameter> parameter;
     /// The return values
     std::vector<std::pair<std::string, const Type*>> returnValues;
-    /// Can throw?
-    bool canThrow = false;
+    /// Type flags (bitmask)
+    unsigned typeFlags;
 
     private:
     /// Constructor
-    FunctionType(Program* program, std::vector<Parameter>&& parameter, std::vector<std::pair<std::string, const Type*>>&& returnValues, bool canThrow);
+    FunctionType(Program* program, std::vector<Parameter>&& parameter, std::vector<std::pair<std::string, const Type*>>&& returnValues, unsigned typeFlags);
 
     public:
     /// Destructor
@@ -59,9 +74,11 @@ class FunctionType : public Type {
     auto& getParameters() const { return parameter; }
     /// Get the return values
     auto& getReturnValues() const { return returnValues; }
+    /// Check for flags
+    bool hasFlag(TypeFlags f) const { return typeFlags & (1 << f); }
 
     /// Create or lookup a function type
-    static const FunctionType* get(Program& prog, std::vector<Parameter>&& parameter, std::vector<std::pair<std::string, const Type*>>&& returnValues, bool canThrow);
+    static const FunctionType* get(Program& prog, std::vector<Parameter>&& parameter, std::vector<std::pair<std::string, const Type*>>&& returnValues, unsigned typeFlags);
 };
 //---------------------------------------------------------------------------
 }

@@ -235,7 +235,7 @@ void SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     throwError(loc, "no type conversion found");
 }
 //---------------------------------------------------------------------------
-const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right)
+pair<const Type*, ValueCategory> SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right)
 // Try to resolve an operator
 {
     // Prefer methods if any
@@ -249,17 +249,20 @@ const Type* SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, con
             auto e = resolveCall(ast, candidates, args, false);
             if (e.has_value()) {
                 auto ft = e->first->accessOverload(e->second).type;
-                if (ft->getReturnValues().size() != 1) {
+                if (ft->getReturnValues().empty()) {
+                    return {Type::getVoid(*program), ValueCategory::Prvalue};
+                } else if (ft->getReturnValues().size() != 1) {
                     throwError(ast, "operator must return a single value");
                 } else {
-                    return ft->getReturnValues()[0].second;
+                    auto t = ft->getReturnValues()[0].second;
+                    return {t, (ft->hasFlag(FunctionType::ReturnsRef) ? ValueCategory::Lvalue : ValueCategory::Prvalue)};
                 }
             }
         }
     }
 
     // Regular lookup
-    return nullptr; // TODO
+    return {nullptr, ValueCategory::Prvalue}; // TODO
 }
 //---------------------------------------------------------------------------
 Declaration* SemanticAnalysis::resolveUnqualifiedId(Scope& scope, const AST* ast)
@@ -745,8 +748,8 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
 
     // Check for overloaded operators
     DeclarationId fid(id);
-    const Type* match = resolveOperator(scope, ast, fid, *left, *right);
-    if (match) return make_unique<AssignmentExpression>(loc, match, Expression::ValueCategory::Lvalue, op, move(left), move(right));
+    auto match = resolveOperator(scope, ast, fid, *left, *right);
+    if (match.first) return make_unique<AssignmentExpression>(loc, match.first, match.second, op, move(left), move(right));
 
     // Check for builtin assignment functionality
     const Type* leftType = left->getType();
@@ -865,13 +868,13 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
 
     // Check for overloaded operators
     DeclarationId fid(id);
-    const Type* match = resolveOperator(scope, ast, fid, *left, *right);
-    if (match) return make_unique<BinaryExpression>(loc, match, Expression::ValueCategory::Prvalue, op, move(left), move(right));
+    auto match = resolveOperator(scope, ast, fid, *left, *right);
+    if (match.first) return make_unique<BinaryExpression>(loc, match.first, match.second, op, move(left), move(right));
 
     // In case of comparisons, try again with spaceship
     if (isCmp) {
         match = resolveOperator(scope, ast, DeclarationId::OperatorSpaceship, *left, *right);
-        if (match) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
+        if (match.first) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
     }
 
     // The usual arithmetic conversions
@@ -1070,7 +1073,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeDeclarationStatement(
                     type = init->getType();
                 } else if (!canConvertImplicit(type, init->getType())) {
                     VariableExpression vr(begin, type, name.name, nullptr);
-                    if (!resolveOperator(scope, ast, DeclarationId(DeclarationId::Category::OperatorAssignment), vr, *init))
+                    if (!resolveOperator(scope, ast, DeclarationId(DeclarationId::Category::OperatorAssignment), vr, *init).first)
                         throwError(decl, "type mismatch in initialization");
                 }
             }
@@ -1379,7 +1382,7 @@ void SemanticAnalysis::analyzeUnnamedDeclaration(Scope& scope, const AST* ast, c
     }
 }
 //---------------------------------------------------------------------------
-const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AST* ast, vector<unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset)
+const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AST* ast, vector<unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset, unsigned* declarationFlags)
 // Analyze a function type declaration
 {
     auto parameterList = ast->get(0, AST::ParameterDeclarationList);
@@ -1393,14 +1396,8 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
     auto classScope = dynamic_cast<Class*>(scope.getCurrentNamespace());
     FunctionType::ParameterDirection implicitDirection = FunctionType::ParameterDirection::Copy;
     unsigned flags = 0;
-    enum FlagValues { Static,
-                      Virtual,
-                      Abstract,
-                      Override,
-                      Final,
-                      Defaulted,
-                      Deleted };
-    auto bitMask = [](FlagValues v) { return 1u << v; };
+    auto bitMask = [](FunctionType::DeclarationFlags v) { return 1u << v; };
+    auto bitMask2 = [](FunctionType::TypeFlags v) { return 1u << v; };
     auto hasMultipleBits = [](unsigned v) { return !!(v & (v - 1)); };
     for (auto m : List<AST::FunctionModifier>(modifierList)) {
         if ((!classScope) && (m->getSubType<ast::FunctionModifier>() != ast::FunctionModifier::Static))
@@ -1413,13 +1410,13 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
             case ast::FunctionModifier::Inout: newDirection = FunctionType::ParameterDirection::Inout; break;
             case ast::FunctionModifier::Move: newDirection = FunctionType::ParameterDirection::Move; break;
             case ast::FunctionModifier::Forward: newDirection = FunctionType::ParameterDirection::Forward; break;
-            case ast::FunctionModifier::Static: newFlags = Static; break;
-            case ast::FunctionModifier::Virtual: newFlags = Virtual; break;
-            case ast::FunctionModifier::Abstract: newFlags = Abstract; break;
-            case ast::FunctionModifier::Override: newFlags = Override; break;
-            case ast::FunctionModifier::Final: newFlags = Final; break;
-            case ast::FunctionModifier::Defaulted: newFlags = Defaulted; break;
-            case ast::FunctionModifier::Deleted: newFlags = Deleted; break;
+            case ast::FunctionModifier::Static: newFlags = FunctionType::Static; break;
+            case ast::FunctionModifier::Virtual: newFlags = FunctionType::Virtual; break;
+            case ast::FunctionModifier::Abstract: newFlags = FunctionType::Abstract; break;
+            case ast::FunctionModifier::Override: newFlags = FunctionType::Override; break;
+            case ast::FunctionModifier::Final: newFlags = FunctionType::Final; break;
+            case ast::FunctionModifier::Defaulted: newFlags = FunctionType::Defaulted; break;
+            case ast::FunctionModifier::Deleted: newFlags = FunctionType::Deleted; break;
         }
         if (newDirection != FunctionType::ParameterDirection::Copy) {
             if (implicitDirection != FunctionType::ParameterDirection::Copy)
@@ -1432,14 +1429,14 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
                 throwError(m, "conflicting modifier");
             flags |= newFlags;
         }
-        if (((flags & bitMask(Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) | (hasMultipleBits(flags & (bitMask(Virtual) | bitMask(Abstract) | bitMask(Override) | bitMask(Final)))))
+        if (((flags & bitMask(FunctionType::Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) | (hasMultipleBits(flags & (bitMask(FunctionType::Virtual) | bitMask(FunctionType::Abstract) | bitMask(FunctionType::Override) | bitMask(FunctionType::Final)))))
             throwError(m, "conflicting modifier");
     }
     if (implicitDirection == FunctionType::ParameterDirection::Copy) implicitDirection = FunctionType::ParameterDirection::In;
 
     // Add implicit this parameter
     vector<FunctionType::Parameter> parameter;
-    if (classScope && (!(flags & bitMask(Static)))) {
+    if (classScope && (!(flags & bitMask(FunctionType::Static)))) {
         FunctionType::Parameter pa;
         pa.name = "this";
         pa.type = classScope->getType();
@@ -1483,23 +1480,35 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
 
     // Handle the return type
     vector<pair<string, const Type*>> returnTypes;
+    unsigned typeFlags = throwsSpecifier ? bitMask2(FunctionType::Throws) : 0;
     if (returnList) {
-        if (returnList->getSubType<ast::ReturnList>() == ast::ReturnList::Single) {
-            auto rt = analyzeIdExpression(scope, returnList->getAny(0));
-            returnTypes.emplace_back(""sv, rt);
-        } else {
-            auto pdl = returnList->get(0, AST::ParameterDeclarationList);
-            for (auto r : List<AST::ParameterDeclaration>(pdl->getOrNull(0, AST::ParameterDeclarationSeq))) {
-                if (r->getAny(0))
-                    throwError(r->getAny(0), "direction modifier not allowed in return list");
-                auto d = ast->get(1, AST::Declaration);
-                auto name = extractIdentifier(d->getAny(0));
-                const Type* type;
-                unique_ptr<Expression> defaultArgument;
-                analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument);
-                if (defaultArgument)
-                    throwError(d, "return value cannot have default values");
-                returnTypes.emplace_back(name, type);
+        switch (returnList->getSubType<ast::ReturnList>()) {
+            case ast::ReturnList::Single:
+            case ast::ReturnList::SingleRef: {
+                bool isRef = returnList->getSubType<ast::ReturnList>() == ast::ReturnList::SingleRef;
+                auto rt = analyzeIdExpression(scope, returnList->getAny(0));
+                if (!isRef) {
+                    rt = rt->getAsNonConst();
+                } else {
+                    typeFlags |= bitMask2(FunctionType::ReturnsRef);
+                }
+                returnTypes.emplace_back(""sv, rt);
+                break;
+            }
+            case ast::ReturnList::Multiple: {
+                auto pdl = returnList->get(0, AST::ParameterDeclarationList);
+                for (auto r : List<AST::ParameterDeclaration>(pdl->getOrNull(0, AST::ParameterDeclarationSeq))) {
+                    if (r->getAny(0))
+                        throwError(r->getAny(0), "direction modifier not allowed in return list");
+                    auto d = ast->get(1, AST::Declaration);
+                    auto name = extractIdentifier(d->getAny(0));
+                    const Type* type;
+                    unique_ptr<Expression> defaultArgument;
+                    analyzeUnnamedDeclaration(scope, d->get(1, AST::UnnamedDeclaration), &type, &defaultArgument);
+                    if (defaultArgument)
+                        throwError(d, "return value cannot have default values");
+                    returnTypes.emplace_back(name, type);
+                }
             }
         }
     }
@@ -1509,7 +1518,8 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
         // TODO
         throwError(contractList, "contracts not implemented yet");
 
-    return FunctionType::get(*program, move(parameter), move(returnTypes), throwsSpecifier);
+    if (declarationFlags) *declarationFlags = flags;
+    return FunctionType::get(*program, move(parameter), move(returnTypes), typeFlags);
 }
 //---------------------------------------------------------------------------
 void SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
@@ -1541,8 +1551,8 @@ void SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
     if (isFunction) {
         auto fdecl = static_cast<FunctionDeclaration*>(decl);
         vector<unique_ptr<Expression>> defaultArguments;
-        unsigned defaultArgumentsOffset;
-        auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset);
+        unsigned defaultArgumentsOffset, declarationFlags;
+        auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), &defaultArguments, &defaultArgumentsOffset, &declarationFlags);
         auto existing = fdecl->findFunctionOverload(funcType);
         if (existing) {
             if (existing->type == funcType)
@@ -1566,7 +1576,7 @@ void SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         if (inStdlib && (!details->getAnyOrNull(1))) return;
 
         auto fdecl = static_cast<FunctionDeclaration*>(decl);
-        auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr);
+        auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr, nullptr);
         auto overload = fdecl->findFunctionOverload(funcType);
 
         FunctionScope fs(overload->type, {});

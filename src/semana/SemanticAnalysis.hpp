@@ -61,7 +61,7 @@ class SemanticAnalysis {
     /// Make sure an expression is convertible into a certain type
     void enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
     /// Try to resolve an operator
-    const Type* resolveOperator(Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right);
+    std::pair<const Type*, ValueCategory> resolveOperator(Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right);
     /// Resolve an unqualified id
     Declaration* resolveUnqualifiedId(Scope& scope, const AST* ast);
     /// Resolve a qualified id
@@ -127,7 +127,7 @@ class SemanticAnalysis {
     /// Analyze an unnamed declaration
     void analyzeUnnamedDeclaration(Scope& scope, const AST* ast, const Type** type, std::unique_ptr<Expression>* value);
     /// Analyze a function type declaration
-    const FunctionType* analyzeFunctionType(Scope& scope, const AST* ast, std::vector<std::unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset);
+    const FunctionType* analyzeFunctionType(Scope& scope, const AST* ast, std::vector<std::unique_ptr<Expression>>* defaultArguments, unsigned* defaultArgumentsOffset, unsigned* declarationFlags);
     /// Analyze a declaration
     void analyzeDeclaration(Scope& scope, const AST* declaration);
     /// Analyze a definition (ignore declarations

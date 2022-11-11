@@ -10,18 +10,18 @@ using namespace std;
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-FunctionType::FunctionType(Program* program, vector<Parameter>&& parameter, vector<pair<string, const Type*>>&& returnValues, bool canThrow)
-    : Type(program), parameter(move(parameter)), returnValues(move(returnValues)), canThrow(canThrow) {
+FunctionType::FunctionType(Program* program, vector<Parameter>&& parameter, vector<pair<string, const Type*>>&& returnValues, unsigned typeFlags)
+    : Type(program), parameter(move(parameter)), returnValues(move(returnValues)), typeFlags(typeFlags) {
 }
 //---------------------------------------------------------------------------
 FunctionType::~FunctionType() {
 }
 //---------------------------------------------------------------------------
-const FunctionType* FunctionType::get(Program& prog, vector<Parameter>&& parameter, vector<pair<string, const Type*>>&& returnValues, bool canThrow)
+const FunctionType* FunctionType::get(Program& prog, vector<Parameter>&& parameter, vector<pair<string, const Type*>>&& returnValues, unsigned typeFlags)
 // Create or lookup a function type
 {
     // Compute a hash value of the signature
-    uint64_t hash = Hash::hash({static_cast<unsigned>(Type::Category::Function), parameter.size(), returnValues.size(), canThrow});
+    uint64_t hash = Hash::hash({static_cast<unsigned>(Type::Category::Function), parameter.size(), returnValues.size(), typeFlags});
     for (auto& p : parameter)
         hash = Hash::hash({hash, Hash::hashString(p.name), Hash::hashPtr(p.type), static_cast<unsigned>(p.direction)});
     for (auto& r : returnValues)
@@ -32,13 +32,13 @@ const FunctionType* FunctionType::get(Program& prog, vector<Parameter>&& paramet
     for (auto iter = range.first; iter != range.second; ++iter) {
         if (iter->second->isFunctionType()) {
             auto ft = iter->second->as<FunctionType>();
-            if ((ft->parameter == parameter) && (ft->returnValues == returnValues) && (ft->canThrow == canThrow))
+            if ((ft->parameter == parameter) && (ft->returnValues == returnValues) && (ft->typeFlags == typeFlags))
                 return ft;
         }
     }
 
     // Create a new type
-    auto r = new FunctionType(&prog, move(parameter), move(returnValues), canThrow);
+    auto r = new FunctionType(&prog, move(parameter), move(returnValues), typeFlags);
     prog.getTypeCache().emplace(hash, r);
     return r;
 }

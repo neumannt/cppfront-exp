@@ -27,18 +27,18 @@ class endl_type {}
 endl : endl_type;
 
 class ostream {
-   operator <<: (v:char) -> ostream inout;
-   operator <<: (v:short) -> ostream inout;
-   operator <<: (v:unsigned short) -> ostream inout;
-   operator <<: (v:int) -> ostream inout;
-   operator <<: (v:unsigned int) -> ostream inout;
-   operator <<: (v:long) -> ostream inout;
-   operator <<: (v:unsigned long) -> ostream inout;
-   operator <<: (v:long long) -> ostream inout;
-   operator <<: (v:unsigned long long) -> ostream inout;
-   operator <<: (v:double) -> ostream inout;
-   operator <<: (v:*const char) -> ostream inout;
-   operator <<: (v:endl_type) -> ostream inout;
+   operator <<: (v:char) -> ostream& inout;
+   operator <<: (v:short) -> ostream& inout;
+   operator <<: (v:unsigned short) -> ostream& inout;
+   operator <<: (v:int) -> ostream& inout;
+   operator <<: (v:unsigned int) -> ostream& inout;
+   operator <<: (v:long) -> ostream& inout;
+   operator <<: (v:unsigned long) -> ostream& inout;
+   operator <<: (v:long long) -> ostream& inout;
+   operator <<: (v:unsigned long long) -> ostream& inout;
+   operator <<: (v:double) -> ostream& inout;
+   operator <<: (v:*const char) -> ostream& inout;
+   operator <<: (v:endl_type) -> ostream& inout;
 }
 
 cout : ostream;

@@ -248,8 +248,11 @@ enum PrefixExpression {
     UMinus,
     Typeid
 };
-enum ReturnList { Single,
-                  Multiple };
+enum class ReturnList {
+    Single,
+    SingleRef,
+    Multiple
+};
 enum UnnamedDeclaration { Function,
                           Value };
 enum UnqualifiedId {

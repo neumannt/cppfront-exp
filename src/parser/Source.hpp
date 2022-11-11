@@ -10,7 +10,7 @@
 //---------------------------------------------------------------------------
 namespace cpp2exp {
 //---------------------------------------------------------------------------
-struct AST;
+class AST;
 //---------------------------------------------------------------------------
 /// A source for the parser. Provided convenience functions for the action rules
 class Source {
@@ -50,6 +50,10 @@ class Source {
     AST* ast(AST::Type type, Range range, const AST* a1);
     /// Create an AST node
     AST* ast2(AST::Type type, unsigned subType, Range range, const AST* a1);
+    /// Create an AST node
+    template <class T>
+    requires(std::is_enum_v<T>)
+        AST* ast2(AST::Type type, T subType, Range range, const AST* a1) { return ast2(type, static_cast<unsigned>(subType), range, a1); }
     /// Create an AST node
     AST* ast(AST::Type type, Range range, const AST* a1, const AST* a2);
     /// Create an AST node
