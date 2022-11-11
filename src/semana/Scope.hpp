@@ -67,8 +67,6 @@ class Scope {
     bool definesVariable(const std::string& name) const;
     /// Define a variable
     Var* defineVariable(const std::string& name, const Type* type, bool uninitialized, bool wrapped);
-    /// Check if a variable that is defined in this scope is uninitialized
-    bool isVariableUninitialized(const std::string& name);
     /// Resolve a variable in this or in parent scopes
     Var* resolveVariable(const std::string& name);
 };

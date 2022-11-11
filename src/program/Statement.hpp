@@ -13,6 +13,7 @@ namespace cpp2exp {
 //---------------------------------------------------------------------------
 class Expression;
 class Program;
+class Type;
 //---------------------------------------------------------------------------
 /// Base class for all statments
 class Statement {
@@ -20,6 +21,7 @@ class Statement {
     /// Types of statements
     enum class Type {
         Compound,
+        Variable,
         Return,
         Expression
     };
@@ -96,6 +98,35 @@ class ExpressionStatement : public Statement {
     auto getBegin() const { return begin; }
     /// Access the value to return (if any)
     auto& getExpression() const { return exp; }
+};
+//---------------------------------------------------------------------------
+/// A variable statement
+class VariableStatement : public Statement {
+    /// The original source location (for pretty printing)
+    SourceLocation begin;
+    /// The variable name
+    std::string name;
+    /// The type
+    const cpp2exp::Type* type;
+    /// The initial value (if any)
+    std::unique_ptr<Expression> init;
+
+    public:
+    /// Constructor
+    VariableStatement(SourceLocation begin, std::string name, const cpp2exp::Type* type, std::unique_ptr<Expression>&& init) : begin(begin), name(std::move(name)), type(type), init(std::move(init)) {}
+    /// Destructor
+    ~VariableStatement();
+
+    /// Get the statement type
+    Type getType() const override { return Type::Variable; }
+    /// Get the begin location
+    auto getBegin() const { return begin; }
+    /// Get the name
+    auto& getName() const { return name; }
+    /// Get the type
+    auto getDeclType() const { return type; }
+    /// Access the init value (if any)
+    auto& getInit() const { return init; }
 };
 //---------------------------------------------------------------------------
 }

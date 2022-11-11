@@ -318,6 +318,19 @@ void CppOut::generateStatement(const Statement& s)
             write("}");
             break;
         }
+        case Statement::Type::Variable: {
+            auto& v = static_cast<const VariableStatement&>(s);
+            advance(v.getBegin());
+            writeType(v.getDeclType());
+            write(" ", v.getName());
+            if (!!v.getInit()) {
+                write("(");
+                generateExpression(*v.getInit());
+                write(")");
+            }
+            write(";");
+            break;
+        }
         case Statement::Type::Return: {
             auto& r = static_cast<const ReturnStatement&>(s);
             advance(r.getBegin());

@@ -21,13 +21,6 @@ Scope::Var* Scope::defineVariable(const std::string& name, const Type* type, boo
     return &(variables[name]);
 }
 //---------------------------------------------------------------------------
-bool Scope::isVariableUninitialized(const std::string& name)
-// Check if a variable is uninitialized
-{
-    if (auto iter = variables.find(name); iter != variables.end()) return !iter->second.initialized;
-    return false;
-}
-//---------------------------------------------------------------------------
 Scope::Var* Scope::resolveVariable(const std::string& name)
 /// Resolve a variable in this or in parent scopes
 {

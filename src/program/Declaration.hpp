@@ -73,6 +73,9 @@ struct DeclarationId {
     /// Construct a special operator function
     DeclarationId(Category category) : category(category) {}
 
+    /// Is a regular id?
+    bool isRegular() const { return category == Category::Regular; }
+
     auto operator<=>(const DeclarationId&) const = default;
 };
 //---------------------------------------------------------------------------

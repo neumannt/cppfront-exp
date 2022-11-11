@@ -1067,6 +1067,78 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
     return make_unique<VariableExpression>(loc, v->getType(), v->getName().name, v->getContainingNamespace());
 }
 //---------------------------------------------------------------------------
+unique_ptr<Statement> SemanticAnalysis::analyzeDeclarationStatement(Scope& scope, const AST* ast)
+// Analyze a declaration statement
+{
+    auto begin = mapping.getBegin(ast->getRange());
+    auto decl = ast->get(0, AST::Declaration);
+    switch (decl->getType()) {
+        case AST::Declaration: {
+            // Check the name
+            auto name = extractDeclarationId(decl->getAny(0));
+            if (!name.isRegular()) {
+                addError(decl, "operator definition not allowed here");
+                return {};
+            }
+            auto details = decl->get(1, AST::UnnamedDeclaration);
+            bool isFunction = details->getSubType<ast::UnnamedDeclaration>() == ast::UnnamedDeclaration::Function;
+            if (isFunction) {
+                addError(decl, "local function definitions not implemented yet"); // TODO
+                return {};
+            }
+            if (scope.definesVariable(name.name)) {
+                addError(decl, "duplicate definition of '" + name.name + "'");
+                return {};
+            }
+
+            // Check the type (if any)
+            const Type* type = nullptr;
+            if (details->getAnyOrNull(0)) {
+                type = analyzeTypeIdExpression(scope, details->getAnyOrNull(0));
+                if (!type) return {};
+            }
+
+            // Check the initial value (if any)
+            unique_ptr<Expression> init;
+            if (details->getAnyOrNull(1)) {
+                if (details->getAny(1)->getType() != AST::ExpressionStatement) {
+                    addError(details->getAny(1), "expression required");
+                    return {};
+                };
+                init = analyzeExpression(scope, details->getAny(1)->getAny(0), type);
+                if (!init) return {};
+                if (!type) {
+                    type = init->getType();
+                } else if (!canConvertImplicit(type, init->getType())) {
+                    VariableExpression vr(begin, type, name.name, nullptr);
+                    if (!resolveOperator(scope, ast, DeclarationId(DeclarationId::Category::OperatorAssignment), vr, *init)) {
+                        addError(decl, "type mismatch in initialization");
+                        return {};
+                    }
+                }
+            }
+
+            // Create a new variable
+            scope.defineVariable(name.name, type, !init, !init);
+            return make_unique<VariableStatement>(begin, name.name, type, move(init));
+        }
+        case AST::Namespace:
+            addError(begin, "namespace definition not allowed here");
+            return {};
+        case AST::Class:
+            addError(begin, "local classes not implemented yet"); // TODO
+            return {};
+        case AST::Using:
+        case AST::UsingDecltype:
+            addError(begin, "local using not implemented yet"); // TODO
+            return {};
+        case AST::Template:
+            addError(begin, "templates not implemented yet"); // TODO
+            return {};
+        default: addError(begin, "invalid AST"); return {};
+    }
+}
+//---------------------------------------------------------------------------
 unique_ptr<Statement> SemanticAnalysis::analyzeCompoundStatement(Scope& scope, const AST* ast)
 // Analyze a compound statement
 {
@@ -1136,7 +1208,7 @@ std::unique_ptr<Statement> SemanticAnalysis::analyzeStatement(Scope& scope, cons
 // Analyze a statement
 {
     switch (ast->getType()) {
-        case AST::DeclarationStatement: addError(ast, "declaration_statement not implemented yet"); return {}; // TODO
+        case AST::DeclarationStatement: return analyzeDeclarationStatement(scope, ast);
         case AST::CompoundStatement: return analyzeCompoundStatement(scope, ast);
         case AST::ReturnStatement: return analyzeReturnStatement(scope, ast);
         case AST::SelectionStatement: addError(ast, "selection_statement not implemented yet"); return {}; // TODO
