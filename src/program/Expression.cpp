@@ -13,6 +13,17 @@ Expression::~Expression()
 {
 }
 //---------------------------------------------------------------------------
+Expression::Precedence UnaryExpression::getPrecedence() const
+// Get the expression precedence (for printing)
+{
+    switch (getOp()) {
+        case Op::Not: return Precedence::Unary;
+        case Op::Plus: return Precedence::Unary;
+        case Op::Minus: return Precedence::Unary;
+    }
+    return Precedence::Primary; // unreachable
+}
+//---------------------------------------------------------------------------
 Expression::Precedence BinaryExpression::getPrecedence() const
 // Get the expression precedence (for printing)
 {

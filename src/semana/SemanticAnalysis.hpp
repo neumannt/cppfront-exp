@@ -61,6 +61,8 @@ class SemanticAnalysis {
     /// Make sure an expression is convertible into a certain type
     void enforceConvertible(const AST* loc, std::unique_ptr<Expression>& exp, const Type* target, bool explicitScope = false);
     /// Try to resolve an operator
+    std::pair<const Type*, ValueCategory> resolveOperator(Scope& scope, const AST* ast, const DeclarationId& id, const Expression& input);
+    /// Try to resolve an operator
     std::pair<const Type*, ValueCategory> resolveOperator(Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right);
     /// Resolve an unqualified id
     Declaration* resolveUnqualifiedId(Scope& scope, const AST* ast);
@@ -104,6 +106,8 @@ class SemanticAnalysis {
     std::unique_ptr<Expression> analyzeAssignmentExpression(Scope& scope, const AST* ast);
     /// Analyze a binary expression
     std::unique_ptr<Expression> analyzeBinaryExpression(Scope& scope, const AST* ast);
+    /// Analyze a prefix expression
+    std::unique_ptr<Expression> analyzePrefixExpression(Scope& scope, const AST* ast);
     /// Analyze an expression list expression
     std::unique_ptr<Expression> analyzeExpressionListExpression(Scope& scope, const AST* ast, const Type* typeHint);
     /// Analyze an id-expression that is part of an expression

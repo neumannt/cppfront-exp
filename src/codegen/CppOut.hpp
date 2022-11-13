@@ -20,6 +20,7 @@ class Namespace;
 class Program;
 class Statement;
 class Type;
+class UnaryExpression;
 //---------------------------------------------------------------------------
 /// Logic for writing C++ code
 class CppOut {
@@ -54,6 +55,8 @@ class CppOut {
     void generateDeclaration(const Declaration& decl, unsigned slot, bool inHeader);
     /// Generate code for a statement
     void generateStatement(const Statement& s);
+    /// Generate code for a unary expression
+    void generateUnaryExpression(const UnaryExpression& e);
     /// Generate code for a binary expression
     void generateBinaryExpression(const BinaryExpression& e);
     /// Generate code for an assignment expression

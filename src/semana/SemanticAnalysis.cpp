@@ -236,6 +236,36 @@ void SemanticAnalysis::enforceConvertible(const AST* loc, std::unique_ptr<Expres
     throwError(loc, "no type conversion found");
 }
 //---------------------------------------------------------------------------
+pair<const Type*, ValueCategory> SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, const AST* ast, const DeclarationId& id, const Expression& input)
+// Try to resolve an operator
+{
+    // Prefer methods if any
+    auto inputType = input.getType();
+    if (inputType->isClassType()) {
+        auto ct = inputType->as<ClassType>();
+        auto cl = ct->getClass();
+        if (auto dec = cl->findWithInheritance(id)) {
+            array<CallArg, 2> args({{input.getType(), input.getValueCategory(), CallArg::Regular}});
+            array<FunctionDeclaration*, 1> candidates({dec});
+            auto e = resolveCall(ast, candidates, args, false);
+            if (e.has_value()) {
+                auto ft = e->first->accessOverload(e->second).type;
+                if (ft->getReturnValues().empty()) {
+                    return {Type::getVoid(*program), ValueCategory::Prvalue};
+                } else if (ft->getReturnValues().size() != 1) {
+                    throwError(ast, "operator must return a single value");
+                } else {
+                    auto t = ft->getReturnValues()[0].second;
+                    return {t, (ft->hasFlag(FunctionType::ReturnsRef) ? ValueCategory::Lvalue : ValueCategory::Prvalue)};
+                }
+            }
+        }
+    }
+
+    // Regular lookup
+    return {nullptr, ValueCategory::Prvalue}; // TODO
+}
+//---------------------------------------------------------------------------
 pair<const Type*, ValueCategory> SemanticAnalysis::resolveOperator([[maybe_unused]] Scope& scope, const AST* ast, const DeclarationId& id, const Expression& left, const Expression& right)
 // Try to resolve an operator
 {
@@ -479,7 +509,7 @@ std::unique_ptr<Expression> SemanticAnalysis::analyzeExpression(Scope& scope, co
         case AST::ExpressionListExpression: return analyzeExpressionListExpression(scope, ast, typeHint);
         case AST::AssignmentExpression: return analyzeAssignmentExpression(scope, ast);
         case AST::BinaryExpression: return analyzeBinaryExpression(scope, ast);
-        case AST::PrefixExpression: throwError(ast, "prefix_expression not implemented yet"); // TODO
+        case AST::PrefixExpression: return analyzePrefixExpression(scope, ast);
         case AST::PostfixExpression: throwError(ast, "postfix_expression not implemented yet"); // TODO
         case AST::BracketExpression: throwError(ast, "bracket_expression not implemented yet"); // TODO
         case AST::ParenExpression: throwError(ast, "paren_expression not implemented yet"); // TODO
@@ -958,6 +988,62 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
     }
 
     throwError(ast, "binary operator not supported for data types");
+}
+//---------------------------------------------------------------------------
+unique_ptr<Expression> SemanticAnalysis::analyzePrefixExpression(Scope& scope, const AST* ast)
+// Analyze a prefix expression
+{
+    // Interpret the AST node type
+    auto loc = mapping.getBegin(ast->getRange());
+    auto subType = ast->getSubType<ast::PrefixExpression>();
+    UnaryExpression::Op op;
+    DeclarationId::Category id;
+    switch (subType) {
+        case ast::PrefixExpression::Not:
+            op = UnaryExpression::Not;
+            id = DeclarationId::OperatorNot;
+            break;
+        case ast::PrefixExpression::Typeid:
+            throwError(ast, "typeid not implemented yet"); // TODO
+        case ast::PrefixExpression::UMinus:
+            op = UnaryExpression::Minus;
+            id = DeclarationId::OperatorMinus;
+            break;
+        case ast::PrefixExpression::UPlus:
+            op = UnaryExpression::Plus;
+            id = DeclarationId::OperatorPlus;
+            break;
+    }
+
+    // Check the input
+    auto input = analyzeExpression(scope, ast->getAny(0));
+
+    // Check for overloaded operators
+    DeclarationId fid(id);
+    auto match = resolveOperator(scope, ast, fid, *input);
+    if (match.first) return make_unique<UnaryExpression>(loc, match.first, match.second, op, move(input));
+
+    // In case of negation, try to convert
+    if (op == UnaryExpression::Not) {
+        enforceConvertible(ast, input, Type::getBool(*program), true);
+        return make_unique<UnaryExpression>(loc, Type::getBool(*program), ValueCategory::Prvalue, op, move(input));
+    }
+
+    // The usual arithmetic conversions
+    using FundamentalTypeId = Type::FundamentalTypeId;
+    const Type* inputType = input->getType();
+    if (inputType->isFundamentalType()) {
+        auto inputId = inputType->as<FundamentalType>()->getId();
+
+        // Promote to integer
+        if ((inputId >= FundamentalTypeId::Char) && (inputId <= FundamentalTypeId::Int)) inputId = FundamentalTypeId::Int;
+
+        // Handle +/-
+        if (((op == UnaryExpression::Plus) || (op == UnaryExpression::Minus)) && Type::isNumerical(inputId))
+            return make_unique<UnaryExpression>(loc, FundamentalType::getFundamentalType(*program, inputId), ValueCategory::Prvalue, op, move(input));
+    }
+
+    throwError(ast, "unary operator not supported for data types");
 }
 //---------------------------------------------------------------------------
 std::unique_ptr<Expression> SemanticAnalysis::analyzeExpressionListExpression(Scope& scope, const AST* ast, [[maybe_unused]] const Type* typeHint)

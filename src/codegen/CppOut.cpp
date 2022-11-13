@@ -382,6 +382,31 @@ void CppOut::generateStatement(const Statement& s)
     }
 }
 //---------------------------------------------------------------------------
+void CppOut::generateUnaryExpression(const UnaryExpression& e)
+// Generate code for an expression
+{
+    // Inspect precedence
+    auto pe = e.getPrecedence(), pi = e.getInput().getPrecedence();
+
+    // Generate the operator itself
+    advance(e.getLocation());
+    using Op = UnaryExpression::Op;
+    switch (e.getOp()) {
+        case Op::Not: write("!"); break;
+        case Op::Plus: write("+"); break;
+        case Op::Minus: write("-"); break;
+    }
+
+    // Generate input with parenthesis if needed
+    if (pi <= pe) {
+        write("(");
+        generateExpression(e.getInput());
+        write(")");
+    } else {
+        generateExpression(e.getInput());
+    }
+}
+//---------------------------------------------------------------------------
 void CppOut::generateBinaryExpression(const BinaryExpression& e)
 // Generate code for an expression
 {
@@ -485,6 +510,7 @@ void CppOut::generateExpression(const Expression& e)
     using Category = Expression::Category;
     switch (e.getCategory()) {
         case Category::Literal: write(static_cast<const Literal&>(e).getText()); break;
+        case Category::Unary: generateUnaryExpression(static_cast<const UnaryExpression&>(e)); break;
         case Category::Binary: generateBinaryExpression(static_cast<const BinaryExpression&>(e)); break;
         case Category::Assignment: generateAssignmentExpression(static_cast<const AssignmentExpression&>(e)); break;
         case Category::Variable: {

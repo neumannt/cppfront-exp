@@ -26,6 +26,7 @@ class Expression {
     /// Expression categories
     enum class Category {
         Literal,
+        Unary,
         Binary,
         Assignment,
         Variable,
@@ -45,6 +46,7 @@ class Expression {
         Shift,
         Additive,
         Multiplicative,
+        Unary,
         Primary
     };
     using ValueCategory = cpp2exp::ValueCategory;
@@ -101,6 +103,37 @@ class Literal : public Expression {
     Precedence getPrecedence() const override { return Precedence::Primary; }
     /// Get the text
     auto getText() const { return text; }
+};
+//---------------------------------------------------------------------------
+/// A unary expression
+class UnaryExpression : public Expression {
+    public:
+    /// The operation
+    enum Op {
+        Not,
+        Plus,
+        Minus
+    };
+
+    private:
+    /// The operation
+    Op op;
+    /// The input
+    std::unique_ptr<Expression> input;
+
+    public:
+    /// Constructor
+    UnaryExpression(SourceLocation loc, const Type* type, ValueCategory valueCategory, Op op, std::unique_ptr<Expression> input) : Expression(loc, type, valueCategory), op(op), input(std::move(input)) {}
+
+    /// Get the operation
+    Op getOp() const { return op; }
+    /// Get the input
+    const Expression& getInput() const { return *input; }
+
+    /// Get the expression category
+    Category getCategory() const override { return Category::Unary; }
+    /// Get the expression precedence (for printing)
+    Precedence getPrecedence() const override;
 };
 //---------------------------------------------------------------------------
 /// A binary expression
