@@ -33,6 +33,7 @@ struct DeclarationId {
         OperatorBitOrEq,
         OperatorBitXor,
         OperatorBitXorEq,
+        OperatorBrackets,
         OperatorComplement,
         OperatorDiv,
         OperatorDivEq,

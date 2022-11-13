@@ -94,15 +94,20 @@ contract_seq
 
 unnamed_declaration
 <- ':' !':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
- / ':' !':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
- / ':' !':' _ t:type_id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+ / ':' !':' _ t:id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s, nullptr); }
+ / ':' !':' _ t:id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr, nullptr); }
  ## extensions to mock existing C++1 code
+ / ':' !':' _ l:declaration_lifetime _ t:id_expression _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s, l); }
+ / ':' !':' _ l:declaration_lifetime _ t:id_expression _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr, l); }
  / ':' !':' _ t:function_type _ ';' { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, nullptr); }
 
+declaration_lifetime
+<- kw_static { $$ = auxil->ast2(AST::DeclarationLifetime, ast::DeclarationLifetime::Static, {$0s, $0e}); }
+
 unnamed_declaration_param
-<- ':' !':' _ t:function_type _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
- / ':' !':' _ t:type_id_expression? _ '=' _ s:statement { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
- / ':' !':' _ t:type_id_expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
+<- ':' !':' _ t:function_type _ '=' _ s:expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Function, {$0s, $0e}, t, s); }
+ / ':' !':' _ t:id_expression? _ '=' _ s:expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, s); }
+ / ':' !':' _ t:id_expression { $$ = auxil->ast2(AST::UnnamedDeclaration, ast::UnnamedDeclaration::Value, {$0s, $0e}, t, nullptr); }
 
 unqualified_id
 <- i:template_id { $$ = auxil->ast2(AST::UnqualifiedId, ast::UnqualifiedId::Template, {$0s, $0e}, i); }
@@ -140,6 +145,7 @@ member_name_specifier
 
 id_expression
 <- kw_const _ i:id_expression { $$ = auxil->ast2(AST::TypeModifier, ast::TypeModifier::Const, {$0s, $0e}, i); }
+ / '*' _ i:id_expression { $$ = auxil->ast2(AST::TypeModifier, ast::TypeModifier::Pointer, {$0s, $0e}, i); }
  / i:qualified_id { $$ = i; }
  / i:unqualified_id { $$ = i; }
  / t:fundamental_type { $$ = t; }
@@ -147,10 +153,6 @@ id_expression
 id_expression_after_dot
 <- i:qualified_id_after_dot { $$ = i; }
  / i:unqualified_id { $$ = i; }
-
-type_id_expression
-<- '*' _ i:id_expression { $$ = auxil->ast2(AST::TypeModifier, ast::TypeModifier::Pointer, {$0s, $0e}, i); }
- / i:id_expression { $$ = i; }
 
 fundamental_type_modifier
 <- kw_unsigned { $$ = auxil->ast2(AST::FundamentalTypeModifier, ast::FundamentalTypeModifier::Unsigned, {$0s, $0e}); }
@@ -710,6 +712,7 @@ operator_name
  / '<' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Less, {$0s, $0e}); }
  / '>=' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::GreaterEq, {$0s, $0e}); }
  / '>' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Greater, {$0s, $0e}); }
+ / '[]' { $$ = auxil->ast2(AST::OperatorName, ast::OperatorName::Brackets, {$0s, $0e}); }
 
 %%
 

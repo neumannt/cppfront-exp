@@ -29,6 +29,7 @@ class AST {
         ContractKind,
         ContractSeq,
         Declaration,
+        DeclarationLifetime,
         DeclarationSeq,
         DeclarationStatement,
         DoWhileStatement,
@@ -187,6 +188,7 @@ enum BinaryExpression {
 enum ContractKind { Pre,
                     Post,
                     Assert };
+enum class DeclarationLifetime { Static };
 enum class FunctionModifier {
     In,
     Out,
@@ -275,6 +277,7 @@ enum class OperatorName {
     BitOrEq,
     BitXor,
     BitXorEq,
+    Brackets,
     Complement,
     Div,
     DivEq,

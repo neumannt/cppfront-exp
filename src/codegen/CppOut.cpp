@@ -169,6 +169,7 @@ void CppOut::generateDeclaration(const Declaration& gdecl, unsigned slot, bool i
                 case DeclarationId::Category::OperatorBitOrEq: write("operator |="); break;
                 case DeclarationId::Category::OperatorBitXor: write("operator ^"); break;
                 case DeclarationId::Category::OperatorBitXorEq: write("operator ^="); break;
+                case DeclarationId::Category::OperatorBrackets: write("operator []"); break;
                 case DeclarationId::Category::OperatorComplement: write("operator ~"); break;
                 case DeclarationId::Category::OperatorDiv: write("operator /"); break;
                 case DeclarationId::Category::OperatorDivEq: write("operator /="); break;

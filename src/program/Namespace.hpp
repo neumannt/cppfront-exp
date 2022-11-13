@@ -33,6 +33,8 @@ class Namespace {
 
     /// Find a declaration within the namespace
     Declaration* findDeclaration(const DeclarationId& name) const;
+    /// Find a declaration within the namespace or a parent namespace
+    Declaration* resolveDeclaration(const DeclarationId& name) const;
     /// Create a new declaration
     Declaration* addDeclaration(std::unique_ptr<Declaration> decl);
 

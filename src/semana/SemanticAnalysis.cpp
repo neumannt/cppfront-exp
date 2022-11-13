@@ -172,6 +172,7 @@ DeclarationId SemanticAnalysis::extractDeclarationId(const AST* ast)
             case ast::OperatorName::BitOrEq: return DeclarationId(DeclarationId::Category::OperatorBitOrEq);
             case ast::OperatorName::BitXor: return DeclarationId(DeclarationId::Category::OperatorBitXor);
             case ast::OperatorName::BitXorEq: return DeclarationId(DeclarationId::Category::OperatorBitXorEq);
+            case ast::OperatorName::Brackets: return DeclarationId(DeclarationId::Category::OperatorBrackets);
             case ast::OperatorName::Complement: return DeclarationId(DeclarationId::Category::OperatorComplement);
             case ast::OperatorName::Div: return DeclarationId(DeclarationId::Category::OperatorDiv);
             case ast::OperatorName::DivEq: return DeclarationId(DeclarationId::Category::OperatorDivEq);
@@ -274,6 +275,9 @@ Declaration* SemanticAnalysis::resolveUnqualifiedId(Scope& scope, const AST* ast
     auto name = DeclarationId(extractIdentifier(ast->get(0, AST::Identifier)));
     auto ns = scope.getCurrentNamespace();
     while (ns) {
+        // Within a class, the unqualified name refers to the class and not the constructor
+        if (dynamic_cast<Class*>(ns) && ns->getName() == name) ns = ns->getParent();
+
         auto d = ns->findDeclaration(name);
         if (d) return d;
         ns = ns->getParent();
@@ -304,7 +308,7 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
             throwError(e, "templates not implemented yet");
         auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
 
-        auto d = ns->findDeclaration(name);
+        auto d = ns->resolveDeclaration(name);
         if (!d)
             throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
         Namespace* next;
@@ -325,7 +329,7 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
         throwError(ast, "templates not implemented yet"); // TODO
     auto name = DeclarationId(extractIdentifier(e->get(0, AST::Identifier)));
 
-    auto d = ns->findDeclaration(name);
+    auto d = ns->resolveDeclaration(name);
     if (!d)
         throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
     return d;
@@ -1375,9 +1379,7 @@ void SemanticAnalysis::analyzeUnnamedDeclaration(Scope& scope, const AST* ast, c
         }
         value->reset();
         if (statement) {
-            if (statement->getType() != AST::ExpressionStatement)
-                throwError(statement, "invalid initializer");
-            *value = analyzeExpression(scope, statement->getAny(0));
+            *value = analyzeExpression(scope, statement, *type);
         }
     }
 }

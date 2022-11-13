@@ -25,6 +25,15 @@ Declaration* Namespace::findDeclaration(const DeclarationId& name) const
     return iter->second.get();
 }
 //---------------------------------------------------------------------------
+Declaration* Namespace::resolveDeclaration(const DeclarationId& name) const
+// Find a declaration within the namespace or a parent namespace
+{
+    for (auto iter = this; iter; iter = iter->parent)
+        if (auto d = iter->findDeclaration(name))
+            return d;
+    return nullptr;
+}
+//---------------------------------------------------------------------------
 Declaration* Namespace::addDeclaration(std::unique_ptr<Declaration> decl)
 // Create a new declaration
 {
