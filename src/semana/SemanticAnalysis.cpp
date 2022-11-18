@@ -1,4 +1,5 @@
 #include "semana/SemanticAnalysis.hpp"
+#include "infra/Error.hpp"
 #include "parser/AST.hpp"
 #include "parser/Parser.hpp"
 #include "program/Declaration.hpp"
@@ -136,14 +137,14 @@ bool SemanticAnalysis::loadStdlib()
 void SemanticAnalysis::throwError(SourceLocation loc, string text)
 // Store an error message
 {
-    errors.emplace_back(loc, move(text));
-    throw Error();
+    errors.emplace_back(Error{loc, std::move(text)});
+    throw ErrorException();
 }
 //---------------------------------------------------------------------------
 void SemanticAnalysis::throwError(const AST* loc, std::string text)
 // Store an error message
 {
-    throwError(mapping.getBegin(loc->getRange()), move(text));
+    throwError(mapping.getBegin(loc->getRange()), std::move(text));
 }
 //---------------------------------------------------------------------------
 string_view SemanticAnalysis::accessText(const AST* ast)
@@ -245,7 +246,7 @@ pair<const Type*, ValueCategory> SemanticAnalysis::resolveOperator([[maybe_unuse
         auto ct = inputType->as<ClassType>();
         auto cl = ct->getClass();
         if (auto dec = cl->findWithInheritance(id)) {
-            array<CallArg, 2> args({{input.getType(), input.getValueCategory(), CallArg::Regular}});
+            array<CallArg, 1> args({CallArg{input.getType(), input.getValueCategory(), CallArg::Regular}});
             array<FunctionDeclaration*, 1> candidates({dec});
             auto e = resolveCall(ast, candidates, args, false);
             if (e.has_value()) {
@@ -275,7 +276,7 @@ pair<const Type*, ValueCategory> SemanticAnalysis::resolveOperator([[maybe_unuse
         auto ct = leftType->as<ClassType>();
         auto cl = ct->getClass();
         if (auto dec = cl->findWithInheritance(id)) {
-            array<CallArg, 2> args({{left.getType(), left.getValueCategory(), CallArg::Regular}, {right.getType(), right.getValueCategory(), CallArg::Regular}});
+            array<CallArg, 2> args({CallArg{left.getType(), left.getValueCategory(), CallArg::Regular}, CallArg{right.getType(), right.getValueCategory(), CallArg::Regular}});
             array<FunctionDeclaration*, 1> candidates({dec});
             auto e = resolveCall(ast, candidates, args, false);
             if (e.has_value()) {
@@ -341,7 +342,7 @@ Declaration* SemanticAnalysis::resolveQualifiedId(Scope& scope, const AST* ast)
         auto d = ns->resolveDeclaration(name);
         if (!d)
             throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
-        Namespace* next;
+        Namespace* next = nullptr;
         if (auto n = dynamic_cast<NamespaceDeclaration*>(d)) {
             next = n->getNamespace();
         } else if (auto c = dynamic_cast<ClassDeclaration*>(d)) {
@@ -783,13 +784,13 @@ unique_ptr<Expression> SemanticAnalysis::analyzeAssignmentExpression(Scope& scop
     // Check for overloaded operators
     DeclarationId fid(id);
     auto match = resolveOperator(scope, ast, fid, *left, *right);
-    if (match.first) return make_unique<AssignmentExpression>(loc, match.first, match.second, op, move(left), move(right));
+    if (match.first) return make_unique<AssignmentExpression>(loc, match.first, match.second, op, std::move(left), std::move(right));
 
     // Check for builtin assignment functionality
     const Type* leftType = left->getType();
     const Type* rightType = right->getType();
     if ((!leftType->isConst()) && (!leftType->isClassType()) && canConvertImplicit(leftType, rightType) && ((op == AssignmentExpression::Assignment) || (leftType->isFundamentalType())))
-        return make_unique<AssignmentExpression>(loc, leftType, Expression::ValueCategory::Lvalue, op, move(left), move(right));
+        return make_unique<AssignmentExpression>(loc, leftType, Expression::ValueCategory::Lvalue, op, std::move(left), std::move(right));
 
     if (leftType->isConst()) {
         throwError(ast, "assignment of read-only variable");
@@ -903,12 +904,12 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
     // Check for overloaded operators
     DeclarationId fid(id);
     auto match = resolveOperator(scope, ast, fid, *left, *right);
-    if (match.first) return make_unique<BinaryExpression>(loc, match.first, match.second, op, move(left), move(right));
+    if (match.first) return make_unique<BinaryExpression>(loc, match.first, match.second, op, std::move(left), std::move(right));
 
     // In case of comparisons, try again with spaceship
     if (isCmp) {
         match = resolveOperator(scope, ast, DeclarationId::OperatorSpaceship, *left, *right);
-        if (match.first) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
+        if (match.first) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, std::move(left), std::move(right));
     }
 
     // The usual arithmetic conversions
@@ -952,7 +953,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::LogicalOr:
             enforceConvertible(ast, left, Type::getBool(*program));
             enforceConvertible(ast, right, Type::getBool(*program));
-            return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
+            return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, std::move(left), std::move(right));
         case BinaryExpression::BitAnd:
         case BinaryExpression::BitOr:
         case BinaryExpression::BitXor:
@@ -964,7 +965,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
             op = BinaryExpression::RightShift;
             id = DeclarationId::OperatorRightShift;
             break;
-            if ((leftType == rightType) && Type::isInteger(leftId)) return make_unique<BinaryExpression>(loc, leftType, Expression::ValueCategory::Prvalue, op, move(left), move(right));
+            if ((leftType == rightType) && Type::isInteger(leftId)) return make_unique<BinaryExpression>(loc, leftType, Expression::ValueCategory::Prvalue, op, std::move(left), std::move(right));
             break;
         case BinaryExpression::Equal:
         case BinaryExpression::NotEqual:
@@ -973,7 +974,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::Greater:
         case BinaryExpression::GreaterEq:
         case BinaryExpression::Spaceship:
-            if (((leftType == rightType) && leftType->isPointerType()) || ((Type::isNumerical(leftId) && Type::isNumerical(rightId)))) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, move(left), move(right));
+            if (((leftType == rightType) && leftType->isPointerType()) || ((Type::isNumerical(leftId) && Type::isNumerical(rightId)))) return make_unique<BinaryExpression>(loc, Type::getBool(*program), Expression::ValueCategory::Prvalue, op, std::move(left), std::move(right));
             break;
         case BinaryExpression::Plus:
         case BinaryExpression::Minus:
@@ -983,7 +984,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeBinaryExpression(Scope& scope, c
         case BinaryExpression::Mul:
         case BinaryExpression::Div:
         case BinaryExpression::Modulo:
-            if ((leftType == rightType) && (Type::isNumerical(leftId))) return make_unique<BinaryExpression>(loc, leftType, Expression::ValueCategory::Prvalue, op, move(left), move(right));
+            if ((leftType == rightType) && (Type::isNumerical(leftId))) return make_unique<BinaryExpression>(loc, leftType, Expression::ValueCategory::Prvalue, op, std::move(left), std::move(right));
             break;
     }
 
@@ -1021,12 +1022,12 @@ unique_ptr<Expression> SemanticAnalysis::analyzePrefixExpression(Scope& scope, c
     // Check for overloaded operators
     DeclarationId fid(id);
     auto match = resolveOperator(scope, ast, fid, *input);
-    if (match.first) return make_unique<UnaryExpression>(loc, match.first, match.second, op, move(input));
+    if (match.first) return make_unique<UnaryExpression>(loc, match.first, match.second, op, std::move(input));
 
     // In case of negation, try to convert
     if (op == UnaryExpression::Not) {
         enforceConvertible(ast, input, Type::getBool(*program), true);
-        return make_unique<UnaryExpression>(loc, Type::getBool(*program), ValueCategory::Prvalue, op, move(input));
+        return make_unique<UnaryExpression>(loc, Type::getBool(*program), ValueCategory::Prvalue, op, std::move(input));
     }
 
     // The usual arithmetic conversions
@@ -1040,7 +1041,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzePrefixExpression(Scope& scope, c
 
         // Handle +/-
         if (((op == UnaryExpression::Plus) || (op == UnaryExpression::Minus)) && Type::isNumerical(inputId))
-            return make_unique<UnaryExpression>(loc, FundamentalType::getFundamentalType(*program, inputId), ValueCategory::Prvalue, op, move(input));
+            return make_unique<UnaryExpression>(loc, FundamentalType::getFundamentalType(*program, inputId), ValueCategory::Prvalue, op, std::move(input));
     }
 
     throwError(ast, "unary operator not supported for data types");
@@ -1099,7 +1100,7 @@ unique_ptr<Expression> SemanticAnalysis::analyzeIdExpressionExpression(Scope& sc
             auto d = ns->findDeclaration(name);
             if (!d)
                 throwError(e, "'" + name.name + "' not found in namespace '" + ns->getName() + "'");
-            Namespace* next;
+            Namespace* next = nullptr;
             if (auto n = dynamic_cast<NamespaceDeclaration*>(d)) {
                 next = n->getNamespace();
             } else if (auto c = dynamic_cast<ClassDeclaration*>(d)) {
@@ -1170,7 +1171,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeDeclarationStatement(
 
             // Create a new variable
             scope.defineVariable(name.name, type, !init, !init);
-            return {make_unique<VariableStatement>(begin, name.name, type, move(init)), ControlFlow::Normal};
+            return {make_unique<VariableStatement>(begin, name.name, type, std::move(init)), ControlFlow::Normal};
         }
         case AST::Namespace:
             throwError(begin, "namespace definition not allowed here");
@@ -1195,13 +1196,13 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeCompoundStatement(Sco
     for (auto s : ASTList(ast->getAnyOrNull(0))) {
         auto res = analyzeStatement(innerScope, s);
         if (state == ControlFlow::Normal) state = res.state;
-        statements.push_back(move(res.statement));
+        statements.push_back(std::move(res.statement));
     }
     auto end = mapping.getEnd(ast->getRange());
 
     innerScope.resolve(state);
 
-    return {make_unique<CompoundStatement>(begin, end, move(statements)), state};
+    return {make_unique<CompoundStatement>(begin, end, std::move(statements)), state};
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::StatementResult SemanticAnalysis::analyzeReturnStatement(Scope& scope, const AST* ast)
@@ -1231,7 +1232,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeReturnStatement(Scope
             throwError(ast, "return values are passed via named arguments in this function");
     }
 
-    return {make_unique<ReturnStatement>(begin, move(arg)), ControlFlow::Returns};
+    return {make_unique<ReturnStatement>(begin, std::move(arg)), ControlFlow::Returns};
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::StatementResult SemanticAnalysis::analyzeSelectionStatement(Scope& scope, const AST* ast)
@@ -1262,7 +1263,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeSelectionStatement(Sc
         if ((thenBranch.state == ControlFlow::Normal) && !innerScope.getInitializedVars().empty())
             throwError(innerScope.getInitializedVars().front().ast, "variable might be uninitialized after 'if'");
         innerScope.resolve(thenBranch.state);
-        return {move(thenBranch.statement), ControlFlow::Normal};
+        return {std::move(thenBranch.statement), ControlFlow::Normal};
     }
 
     // An if with two branches
@@ -1305,7 +1306,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeSelectionStatement(Sc
         }
     }
 
-    return {make_unique<SelectionStatement>(begin, move(cond), move(thenBranch.statement), move(elseBranch.statement)), state};
+    return {make_unique<SelectionStatement>(begin, std::move(cond), std::move(thenBranch.statement), std::move(elseBranch.statement)), state};
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::StatementResult SemanticAnalysis::analyzeExpressionStatement(Scope& scope, const AST* ast)
@@ -1315,7 +1316,7 @@ SemanticAnalysis::StatementResult SemanticAnalysis::analyzeExpressionStatement(S
     unique_ptr<Expression> arg = analyzeExpression(scope, ast->getAny(0));
     if (!arg) return {};
 
-    return {make_unique<ExpressionStatement>(begin, move(arg)), ControlFlow::Normal};
+    return {make_unique<ExpressionStatement>(begin, std::move(arg)), ControlFlow::Normal};
 }
 //---------------------------------------------------------------------------
 SemanticAnalysis::StatementResult SemanticAnalysis::analyzeStatement(Scope& scope, const AST* ast)
@@ -1517,7 +1518,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
                 throwError(m, "conflicting modifier");
             flags |= newFlags;
         }
-        if (((flags & bitMask(FunctionType::Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) | (hasMultipleBits(flags & (bitMask(FunctionType::Virtual) | bitMask(FunctionType::Abstract) | bitMask(FunctionType::Override) | bitMask(FunctionType::Final)))))
+        if (((flags & bitMask(FunctionType::Static)) && (hasMultipleBits(flags) || (implicitDirection != FunctionType::ParameterDirection::Copy))) || (hasMultipleBits(flags & (bitMask(FunctionType::Virtual) | bitMask(FunctionType::Abstract) | bitMask(FunctionType::Override) | bitMask(FunctionType::Final)))))
             throwError(m, "conflicting modifier");
     }
     if (implicitDirection == FunctionType::ParameterDirection::Copy) implicitDirection = FunctionType::ParameterDirection::In;
@@ -1529,7 +1530,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
         pa.name = "this";
         pa.type = classScope->getType();
         pa.direction = implicitDirection;
-        parameter.push_back(move(pa));
+        parameter.push_back(std::move(pa));
         ++slot;
     }
 
@@ -1557,12 +1558,12 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
         if (defaultArguments) {
             if (defaultArgument) {
                 if (defaultArguments->empty()) *defaultArgumentsOffset = slot;
-                defaultArguments->push_back(move(defaultArgument));
+                defaultArguments->push_back(std::move(defaultArgument));
             } else if (!defaultArguments->empty()) {
                 throwError(p, "default argument missing");
             }
         }
-        parameter.push_back(move(pa));
+        parameter.push_back(std::move(pa));
         ++slot;
     }
 
@@ -1607,7 +1608,7 @@ const FunctionType* SemanticAnalysis::analyzeFunctionType(Scope& scope, const AS
         throwError(contractList, "contracts not implemented yet");
 
     if (declarationFlags) *declarationFlags = flags;
-    return FunctionType::get(*program, move(parameter), move(returnTypes), typeFlags);
+    return FunctionType::get(*program, std::move(parameter), std::move(returnTypes), typeFlags);
 }
 //---------------------------------------------------------------------------
 void SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
@@ -1626,11 +1627,11 @@ void SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
             throwError(declaration, "duplicate definition");
     } else {
         if (isFunction) {
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, move(name), scope.getCurrentNamespace()));
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<FunctionDeclaration>(loc, std::move(name), scope.getCurrentNamespace()));
         } else {
             if (!details->getAnyOrNull(0)) throwError(declaration, "type required");
             auto type = analyzeTypeIdExpression(scope, details->getAnyOrNull(0));
-            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, move(name), scope.getCurrentNamespace(), type));
+            decl = scope.getCurrentNamespace()->addDeclaration(make_unique<VariableDeclaration>(loc, std::move(name), scope.getCurrentNamespace(), type));
         }
     }
 
@@ -1647,7 +1648,7 @@ void SemanticAnalysis::analyzeDeclaration(Scope& scope, const AST* declaration)
                 throwError(declaration, "function overload with that signature already exists");
             throwError(declaration, "function overload with ambiguous signature already exists");
         }
-        slot = fdecl->addFunctionOverload(loc, funcType, move(defaultArguments), defaultArgumentsOffset);
+        slot = fdecl->addFunctionOverload(loc, funcType, std::move(defaultArguments), defaultArgumentsOffset);
     }
     if (!inStdlib) program->trackSourceOrder(decl, slot);
 }
@@ -1667,7 +1668,7 @@ void SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
         auto funcType = analyzeFunctionType(scope, details->get(0, AST::FunctionType), nullptr, nullptr, nullptr);
         auto overload = fdecl->findFunctionOverload(funcType);
 
-        FunctionScope fs(overload->type, {});
+        FunctionScope fs(overload->type);
         Scope innerScope(scope);
         innerScope.setCurrentFunction(&fs);
         for (auto& p : funcType->getParameters()) {
@@ -1679,7 +1680,7 @@ void SemanticAnalysis::analyzeDefinition(Scope& scope, const AST* declaration)
             if (p.direction == FunctionType::ParameterDirection::Out) fs.out.push_back({p.name, var});
         }
         auto res = analyzeStatement(innerScope, details->getAny(1));
-        overload->statement = move(res.statement);
+        overload->statement = std::move(res.statement);
         if ((res.state == ControlFlow::Normal) && (funcType->returnValues.size() == 1))
             throwError(declaration, "function must return a value");
         innerScope.resolve(ControlFlow::Returns);
@@ -1811,7 +1812,7 @@ bool SemanticAnalysis::analyze(const AST* translationUnit)
 
         // Now process all definitions
         analyzeDeclarations(scope, declarations, Phase::Definitions);
-    } catch (const Error&) {
+    } catch (const ErrorException&) {
         return false;
     }
 

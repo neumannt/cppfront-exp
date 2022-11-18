@@ -21,7 +21,8 @@ class Statement;
 class Type;
 //---------------------------------------------------------------------------
 /// A function id
-struct DeclarationId {
+class DeclarationId {
+    public:
     /// Known categories
     enum Category {
         Regular,

@@ -11,7 +11,7 @@ using namespace std;
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 Namespace::Namespace(string name, Namespace* parent)
-    : name(move(name)), parent(parent), depth(parent ? (parent->depth + 1) : 0) {
+    : name(std::move(name)), parent(parent), depth(parent ? (parent->depth + 1) : 0) {
 }
 //---------------------------------------------------------------------------
 Namespace::~Namespace() {
@@ -39,7 +39,7 @@ Declaration* Namespace::addDeclaration(std::unique_ptr<Declaration> decl)
 {
     auto name = decl->getName();
     auto d = decl.get();
-    declarations.emplace(name, move(decl));
+    declarations.emplace(name, std::move(decl));
     return d;
 }
 //---------------------------------------------------------------------------

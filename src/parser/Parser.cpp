@@ -22,7 +22,7 @@ Parser::~Parser()
 void Parser::addError(SourceLocation loc, string text)
 // Store an error message
 {
-    errors.emplace_back(loc, move(text));
+    errors.emplace_back(Error{loc, std::move(text)});
 }
 //---------------------------------------------------------------------------
 const AST* Parser::parseFile(const string& fileName)

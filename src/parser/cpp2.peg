@@ -19,6 +19,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wignored-qualifiers"
+#ifdef __clang__
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
 
 #if 0
 static const char *dbg_str[] = { "Evaluating rule", "Matched rule", "Abandoning rule" };

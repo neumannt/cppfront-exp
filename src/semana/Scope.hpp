@@ -106,6 +106,9 @@ struct FunctionScope {
     const FunctionType* functionType;
     /// The out parameter (if any)
     std::vector<std::pair<std::string, Scope::Var*>> out;
+
+    /// Constructor
+    explicit FunctionScope(const FunctionType* functionType) : functionType(functionType) {}
 };
 //---------------------------------------------------------------------------
 }

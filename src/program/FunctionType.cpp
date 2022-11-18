@@ -11,7 +11,7 @@ using namespace std;
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 FunctionType::FunctionType(Program* program, vector<Parameter>&& parameter, vector<pair<string, const Type*>>&& returnValues, unsigned typeFlags)
-    : Type(program), parameter(move(parameter)), returnValues(move(returnValues)), typeFlags(typeFlags) {
+    : Type(program), parameter(std::move(parameter)), returnValues(std::move(returnValues)), typeFlags(typeFlags) {
 }
 //---------------------------------------------------------------------------
 FunctionType::~FunctionType() {
@@ -38,7 +38,7 @@ const FunctionType* FunctionType::get(Program& prog, vector<Parameter>&& paramet
     }
 
     // Create a new type
-    auto r = new FunctionType(&prog, move(parameter), move(returnValues), typeFlags);
+    auto r = new FunctionType(&prog, std::move(parameter), std::move(returnValues), typeFlags);
     prog.getTypeCache().emplace(hash, r);
     return r;
 }

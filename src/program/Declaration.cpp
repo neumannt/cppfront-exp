@@ -18,7 +18,7 @@ std::size_t std::hash<cpp2exp::DeclarationId>::operator()(const cpp2exp::Declara
 namespace cpp2exp {
 //---------------------------------------------------------------------------
 Declaration::Declaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace)
-    : loc(loc), name(move(name)), containingNamespace(containingNamespace) {
+    : loc(loc), name(std::move(name)), containingNamespace(containingNamespace) {
 }
 //---------------------------------------------------------------------------
 Declaration::~Declaration() {
@@ -31,7 +31,7 @@ const Type* Declaration::getCorrespondingType() const
 }
 //---------------------------------------------------------------------------
 VariableDeclaration::VariableDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace, const Type* type)
-    : Declaration(loc, move(name), containingNamespace), type(type)
+    : Declaration(loc, std::move(name), containingNamespace), type(type)
 // Constructor
 {
 }
@@ -42,7 +42,7 @@ VariableDeclaration::~VariableDeclaration()
 }
 //---------------------------------------------------------------------------
 FunctionDeclaration::FunctionDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace)
-    : Declaration(loc, move(name), containingNamespace)
+    : Declaration(loc, std::move(name), containingNamespace)
 // Constructor
 {
 }
@@ -72,7 +72,7 @@ FunctionDeclaration::Overload* FunctionDeclaration::findFunctionOverload(const F
 unsigned FunctionDeclaration::addFunctionOverload(SourceLocation loc, const FunctionType* type, std::vector<std::unique_ptr<Expression>>&& defaultArguments, unsigned defaultArgumentsOffset)
 // Add a new function overload
 {
-    overloads.emplace_back(loc, type, move(defaultArguments), defaultArgumentsOffset);
+    overloads.emplace_back(Overload{loc, type, std::move(defaultArguments), defaultArgumentsOffset, {}});
     return overloads.size() - 1;
 }
 //---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ const Type* ClassDeclaration::getCorrespondingType() const
 }
 //---------------------------------------------------------------------------
 TypedefDeclaration::TypedefDeclaration(SourceLocation loc, DeclarationId name, Namespace* containingNamespace, const Type* originalType)
-    : Declaration(loc, move(name), containingNamespace), newType(make_unique<AliasType>(originalType->getProgram(), originalType))
+    : Declaration(loc, std::move(name), containingNamespace), newType(make_unique<AliasType>(originalType->getProgram(), originalType))
 // Constructor
 {
 }
